@@ -23,7 +23,23 @@ class Resblock(nn.Module):
         rs = torch.add(x, rs1)  # Bsx32x64x64
         return rs
 
+class loss_with_l2_regularization(nn.Module):
+    def __init__(self):
+        super(loss_with_l2_regularization, self).__init__()
 
+    def forward(self, criterion, model, weight_decay=1e-5, flag=False):
+        regularizations = []
+        for k, v in model.named_parameters():
+            if 'conv' in k and 'weight' in k:
+                # print(k)
+                penality = weight_decay * ((v.data ** 2).sum() / 2)
+                regularizations.append(penality)
+                if flag:
+                    print("{} : {}".format(k, penality))
+        # r = torch.sum(regularizations)
+
+        loss = criterion + sum(regularizations)
+        return 
 
 def truncated_normal_(tensor, mean=0.0, std=1.0):
     with torch.no_grad():
@@ -160,6 +176,6 @@ class FusionNet(nn.Module):
         output = self.conv3(rs)  # Bsx8x64x64
 
         return output +x # lms + outs
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu") # PyTorch v0.4.0
-model = FusionNet().to(device)
-summary(model, ((1,1, 128,128),(1,4, 128,128)))
+# device = torch.device("cuda" if torch.cuda.is_available() else "cpu") # PyTorch v0.4.0
+# model = FusionNet().to(device)
+# summary(model, ((1,1, 128,128),(1,4, 128,128)))

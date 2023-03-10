@@ -1,10 +1,10 @@
 #!/usr/bin/env python
-# -*- coding:utf-8 -*-
+# -*- coding:utf-8 -*-p
 import argparse
 import os
 #os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 # os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID "
-os.environ["CUDA_VISIBLE_DEVICES"] = "3"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 from mmcv import Config#MMCv的核心组件 config类
 from mmcv.utils import get_logger
@@ -20,8 +20,9 @@ from tensorboardX import SummaryWriter
 # from models.LDP_net import LDP_Net
 #from models.model_MSDCNN import MSDCNN_model
 #from models.model_fusionnet import FusionNet
+#from models.model_LAGConv import LACNET
 #from models.Pan_former import CrossSwinTransformer
-from models.my_transformer import my_model_3_7
+from models.my_transformer import my_model_3_9_2
 #from models.NLRNET import NLRNet
 print(torch.cuda.device_count())
 print(torch.cuda.current_device())
@@ -53,12 +54,12 @@ def main(cfg, logger):
     # model = Pangan()
 
     #模型的结构 改1
-    G = my_model_3_7()
+    G = my_model_3_9_2()
     # G = Stage2()
-    G_resume = my_model_3_7()
+    G_resume = my_model_3_9_2()
     #损失函数 改2
     #G_loss_func = unsuper_loss()
-    G_loss_func=super_loss()
+    G_loss_func=super_loss(cfg.loss_type)
 
     # set GPU
     if cfg.cuda and not torch.cuda.is_available():
@@ -106,10 +107,10 @@ def main(cfg, logger):
         test_dataset = TestDatasetFromFolder(
             cfg.train_set_cfg['dataset_test'])  # 产生dataloader train_set_cfg给定读取测试图片的位置（full low)(何种数据集）
         test_dataloader = Data.DataLoader(dataset=test_dataset, batch_size=cfg.test_batch_size, shuffle=False,
-                                          num_workers=cfg.threads)
+                                          num_workers=cfg.threads,pin_memory=True)
         test_dataset_2 = TestDatasetFromFolder(cfg.train_set_cfg['dataset_test_2'])
         test_dataloader_2 = Data.DataLoader(dataset=test_dataset_2, batch_size=cfg.test_batch_size, shuffle=False,
-                                            num_workers=cfg.threads)
+                                            num_workers=cfg.threads,pin_memory=True)
         logger.info('==>loading test data...')
         if os.path.isfile(cfg.pretrained):
             logger.info('==> loading model {}'.format(cfg.pretrained))
@@ -160,17 +161,17 @@ def main(cfg, logger):
         logger.info(cfg.train_set_cfg['dataset_train'])
         train_dataset = TrainDatasetFromFolder(cfg.train_set_cfg['dataset_train'])
         train_dataloader = Data.DataLoader(dataset=train_dataset, batch_size=cfg.batch_size, shuffle=False,
-                                           num_workers=cfg.threads)
+                                           num_workers=cfg.threads,pin_memory=True)
         # # 产生验证数据
-        make_data.generate_data(cfg.make_data_cfg['valid_data'])  # 当用于训练时 只有5对数据
-        make_data.generate_data(cfg.make_data_cfg['valid_data_2'])
+        #make_data.generate_data(cfg.make_data_cfg['valid_data'])  # 当用于训练时 只有5对数据
+        #make_data.generate_data(cfg.make_data_cfg['valid_data_2'])
         valid_dataset = TestDatasetFromFolder(
             cfg.train_set_cfg['dataset_test'])  # 产生dataloader train_set_cfg给定读取测试图片的位置（full low)(何种数据集）
         valid_dataloader = Data.DataLoader(dataset=valid_dataset, batch_size=cfg.test_batch_size, shuffle=False,
-                                           num_workers=cfg.threads)
+                                           num_workers=cfg.threads,pin_memory=True)
         valid_dataset_2 = TestDatasetFromFolder(cfg.train_set_cfg['dataset_test_2'])
         valid_dataloader_2 = Data.DataLoader(dataset=valid_dataset_2, batch_size=cfg.test_batch_size, shuffle=False,
-                                             num_workers=cfg.threads)
+                                             num_workers=cfg.threads,pin_memory=True)
 
         if cfg.resumeG:
             if os.path.isfile(cfg.resumeG):

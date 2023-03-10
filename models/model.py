@@ -179,9 +179,10 @@ class MultiAttentionResBlock(nn.Module):
         x_deepfeature5 = self.DeepFeature_Layer4(f5)
         x_deepfeature7 = self.DeepFeature_Layer5(f7)
         x_deepfeature_cat = torch.cat([x_deepfeature1,x_deepfeature3,x_deepfeature5,x_deepfeature7],dim=1)
+        x_deepfeature_cat = self.se(x_deepfeature_cat)
         y = x_deepfeature + x_deepfeature_cat
 
-        #y = self.se(y)
+        
         y = self.lrelu(y)
 
         return y

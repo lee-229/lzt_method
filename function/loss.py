@@ -165,18 +165,18 @@ def criterion(self, output, _label):
 
     return spatital_loss + spectral_loss + spectral_loss2
 class super_loss(nn.Module):
-    def __init__(self,model=None):
+    def __init__(self,loss_type=None):
         super(super_loss, self).__init__()
-        self.pixel_loss = nn.L1Loss()
-        self.NLR_loss=criterion
-        self.model=model
+        self.loss=loss_type
+        self.L1 = nn.L1Loss()
+        self.L2 = nn.MSELoss()
 
 
     def forward(self, target,pansharpening):
-        if (self.model == 'NLRNet'):
-            return self.NLR_loss(pansharpening,target)
-        else:
-            return self.pixel_loss(target,pansharpening)
+        if (self.loss == 'L1'):
+            return self.L1(pansharpening,target)
+        elif(self.loss == 'L2'):
+            return self.L2(target,pansharpening)
         #SAM_loss =SAM_torch(target,pansharpening)
         #return 3*Pixel_loss + SAM_loss
 

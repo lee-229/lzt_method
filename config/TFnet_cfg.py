@@ -4,13 +4,16 @@ import os
 import torch
 import datetime
 test=False
-model = 'my_model_3_7'
+model = 'my_model_3_9_2'
+loss_type='L1'
+lr = 1e-4
 step = 5
 decay_rate=0.99
 optimizer=torch.optim.Adam
 dataset = 'WV4_small' #makedata中的data source也要改
+source='/root/autodl-tmp/new_dataset/4 WorldView-4/'
 TIMESTAMP=datetime.datetime.now().strftime('%y-%m-%d-%H')
-test_STAMP='23-03-07-09'
+test_STAMP='23-03-09-21'
 ms_size=64
 # dataset
 test_type = 'test_full_res'
@@ -27,22 +30,19 @@ pixel_loss_type = 'L1'
 train_dir = './train/'
 train_type = 'train_low_res'# full是无监督 low是有监督
 data_type = "tanh"
-lr = 1e-4
+
 scale_factor = 4
 batch_size = 32
 test_batch_size = 5
-num_epochs = 150
-start_epoch =1
-resumeG = ''
+num_epochs = 200
+start_epoch =21
+resumeG = '/root/Pansharpening/Pansharpening/model_para/WV4_small/my_model_3_9_2/G/23-03-09-23/epoch20.pkl'
 cuda = True
 device = torch.device("cuda:0" )
 device_ids = [0]
 parallel = True
 make_data = False
 # resume
-
-
-
 threads = 4
 
 # test
@@ -79,7 +79,7 @@ if(test==True):
     make_data_cfg = dict(
         test_data=dict(
             image_dirs=os.path.join(train_dir, dataset, test_type),
-            source_path="/media/dy113/disk1/Project_lzt/dataset/new_dataset/4 WorldView-4",
+            source_path=source,
             stride=16,
             ms_size=32,
             pan_size=128,
@@ -87,7 +87,7 @@ if(test==True):
             train_pair = 10000),
         test_data_2=dict(
             image_dirs=os.path.join(train_dir, dataset, test_type_2),
-            source_path="/media/dy113/disk1/Project_lzt/dataset/new_dataset/4 WorldView-4",
+            source_path=source,
             stride=16,
             ms_size=32,
             pan_size=128,
@@ -95,7 +95,7 @@ if(test==True):
             train_pair=10000),
         train_data=dict(
             image_dirs=os.path.join(train_dir, dataset, train_type),
-            source_path="/media/dy113/disk1/Project_lzt/dataset/new_dataset/4 WorldView-4",
+            source_path=source,
             stride=16,
             ms_size=32,
             pan_size=128,
@@ -124,7 +124,7 @@ else:
     make_data_cfg = dict(
         valid_data=dict(
             image_dirs=os.path.join(train_dir, dataset, valid_dir,test_type),
-            source_path="/media/dy113/disk1/Project_lzt/dataset/new_dataset/4 WorldView-4",
+            source_path=source,
             stride=8,
             ms_size=16,
             pan_size=64,
@@ -132,7 +132,7 @@ else:
             train_pair = 22000),
         valid_data_2=dict(
             image_dirs=os.path.join(train_dir, dataset,valid_dir, test_type_2),
-            source_path="/media/dy113/disk1/Project_lzt/dataset/new_dataset/4 WorldView-4",
+            source_path=source,
             stride=8,
             ms_size=16,
             pan_size=64,
@@ -140,7 +140,7 @@ else:
             train_pair=22000),
         train_data=dict(
             image_dirs=os.path.join(train_dir, dataset, train_type),
-            source_path="/media/dy113/disk1/Project_lzt/dataset/new_dataset/4 WorldView-4",
+            source_path=source,
             stride=8,
             ms_size=16,
             pan_size=64,
