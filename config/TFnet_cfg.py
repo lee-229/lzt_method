@@ -3,40 +3,54 @@
 import os
 import torch
 import datetime
+#from models.model_Unet import Unet_transformer,Unet
+#from models.model_TFnet import TFNet
+# #from models.LDP_net import LDP_Net
+# from models.model_MSDCNN import MSDCNN_model
+# from models.model_fusionnet import FusionNet
+# from models.model_LAGConv import LACNET
+# from models.Pan_former import CrossSwinTransformer
+from models.my_transformer import my_model_3_6_resnet_noTrans,my_model_3_10,my_model_3_11
+# from models.NLRNET import NLRNet
+#训练设置
 test=False
-model = 'my_model_3_9_2'
-loss_type='L1'
+MODEL=my_model_3_11()
+model = 'my_model_3_11'
+#batch size
+batch_size = 32
+#学习率
 lr = 1e-4
 step = 5
 decay_rate=0.99
 optimizer=torch.optim.Adam
+#损失函数
+loss_type='L1'
+#数据集
 dataset = 'WV4_small' #makedata中的data source也要改
 source='/root/autodl-tmp/new_dataset/4 WorldView-4/'
-TIMESTAMP=datetime.datetime.now().strftime('%y-%m-%d-%H')
-test_STAMP='23-03-09-21'
 ms_size=64
-# dataset
+#测试设置
+TIMESTAMP=datetime.datetime.now().strftime('%y-%m-%d-%H')
+test_STAMP='23-03-10-21'
+test_batch_size = 5
+#恢复训练设置
+start_epoch =31
+resumeG = '/root/Pansharpening/Pansharpening/model_para/WV4_small/my_model_3_11/G/23-03-11-08/epoch30.pkl'
+
 test_type = 'test_full_res'
 test_type_2 = 'test_low_res'
-
 valid_type = 'test_full_res'
 valid_type_2 = 'test_low_res'
 bit_depth = 11
 # test savedir
 savedir = './output/'
-# loss
-pixel_loss_type = 'L1'
 # train
 train_dir = './train/'
 train_type = 'train_low_res'# full是无监督 low是有监督
 data_type = "tanh"
 
 scale_factor = 4
-batch_size = 32
-test_batch_size = 5
-num_epochs = 200
-start_epoch =21
-resumeG = '/root/Pansharpening/Pansharpening/model_para/WV4_small/my_model_3_9_2/G/23-03-09-23/epoch20.pkl'
+num_epochs = 150
 cuda = True
 device = torch.device("cuda:0" )
 device_ids = [0]
@@ -46,8 +60,6 @@ make_data = False
 threads = 4
 
 # test
-
-stage1 = '/media/dy113/disk1/Project_lzt/code/LDP_GAN/model_para/WV4/Unet_cutblock_change /G/epoch100.pkl'
 pretrained = './model_para/'+dataset+'/'+model+'/G/'+test_STAMP+'/epoch'+str(num_epochs)+'.pkl'
 valid_dir = "./valid"
 csv_FR_dir = './test_result/'+model+'_'+dataset+'_'+TIMESTAMP+'_FR.csv'
@@ -80,27 +92,20 @@ if(test==True):
         test_data=dict(
             image_dirs=os.path.join(train_dir, dataset, test_type),
             source_path=source,
-            stride=16,
-            ms_size=32,
-            pan_size=128,
+            stride=0,
+            ms_size=0,
+            pan_size=0,
             test_pair =50,
-            train_pair = 10000),
+            train_pair = 0),
         test_data_2=dict(
             image_dirs=os.path.join(train_dir, dataset, test_type_2),
             source_path=source,
-            stride=16,
-            ms_size=32,
-            pan_size=128,
+            stride=0,
+            ms_size=0,
+            pan_size=0,
             test_pair=50,
-            train_pair=10000),
-        train_data=dict(
-            image_dirs=os.path.join(train_dir, dataset, train_type),
-            source_path=source,
-            stride=16,
-            ms_size=32,
-            pan_size=128,
-            test_pair=50,
-            train_pair=10000)
+            train_pair=0),
+        
     )
 else:
     train_set_cfg = dict(

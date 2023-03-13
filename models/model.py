@@ -179,13 +179,61 @@ class MultiAttentionResBlock(nn.Module):
         x_deepfeature5 = self.DeepFeature_Layer4(f5)
         x_deepfeature7 = self.DeepFeature_Layer5(f7)
         x_deepfeature_cat = torch.cat([x_deepfeature1,x_deepfeature3,x_deepfeature5,x_deepfeature7],dim=1)
-        x_deepfeature_cat = self.se(x_deepfeature_cat)
+        #x_deepfeature_cat = self.se(x_deepfeature_cat)
         y = x_deepfeature + x_deepfeature_cat
 
         
         y = self.lrelu(y)
 
         return y
+class MultiResBlock_noConv(nn.Module):
+    def __init__(self,in_ch,out_ch,ksize):
+        super(MultiResBlock_noConv, self).__init__()
+        self.in_channels = in_ch
+        self.out_channels = out_ch
+        self.initial_kernel_size = ksize
+        self.sub_channels = out_ch//4
+        self.se = se_block(self.out_channels, 8)
+        self.DeepFeature_Layer1 = nn.Sequential(
+            nn.Conv2d(in_channels=in_ch, out_channels=out_ch,kernel_size=(ksize, ksize), stride=(1, 1), padding=ksize//2),
+            nn.LeakyReLU(0.2,inplace=True)
+        )
+        self.DeepFeature_Layer2 = nn.Sequential(
+            nn.Conv2d(in_channels=out_ch // 4, out_channels=out_ch // 4,kernel_size=(1, 1), stride=(1, 1), padding=0),
+            nn.LeakyReLU(0.2, inplace=True)
+        )
+        self.DeepFeature_Layer3 = nn.Sequential(
+            nn.Conv2d(in_channels=out_ch // 4, out_channels=out_ch // 4,kernel_size=(3, 3), stride=(1, 1), padding=1),
+            nn.LeakyReLU(0.2,inplace=True)
+        )
+        self.DeepFeature_Layer4 = nn.Sequential(
+            nn.Conv2d(in_channels=out_ch // 4, out_channels=out_ch // 4, kernel_size=(5, 5), stride=(1, 1), padding=2),
+            nn.LeakyReLU(0.2,inplace=True)
+        )
+        self.DeepFeature_Layer5 = nn.Sequential(
+            nn.Conv2d(in_channels=out_ch // 4, out_channels=out_ch // 4, kernel_size=(7, 7), stride=(1, 1), padding=3),
+            nn.LeakyReLU(0.2,inplace=True)
+        )
+        self.lrelu = nn.LeakyReLU()
+
+
+    def forward(self,x):
+        x_deepfeature = x
+        f1,f3,f5,f7 = x_deepfeature[:,0:self.sub_channels,:,:],x_deepfeature[:,self.sub_channels:self.sub_channels*2,:,:]\
+        ,x_deepfeature[:,self.sub_channels*2:self.sub_channels*3,:,:],x_deepfeature[:,self.sub_channels*3:self.sub_channels*4,:,:]
+        x_deepfeature1 = self.DeepFeature_Layer2(f1)
+        x_deepfeature3 = self.DeepFeature_Layer3(f3)
+        x_deepfeature5 = self.DeepFeature_Layer4(f5)
+        x_deepfeature7 = self.DeepFeature_Layer5(f7)
+        x_deepfeature_cat = torch.cat([x_deepfeature1,x_deepfeature3,x_deepfeature5,x_deepfeature7],dim=1)
+        #x_deepfeature_cat = self.se(x_deepfeature_cat)
+        y = x_deepfeature + x_deepfeature_cat
+
+        
+        y = self.lrelu(y)
+
+        return y
+
 
 
 
@@ -554,10 +602,9 @@ class SwinModule(nn.Module):
 
     def forward(self, x, y=None):
         if y is None:
+            original_x=x
             x = self.patch_partition(x)  # [N, H//downscaling_factor, W//downscaling_factor, hidden_dim]
-
             x = self.layers(x)
-
             return x.permute(0, 3, 1, 2)
             # [N, hidden_dim,  H//downscaling_factor, W//downscaling_factor]
 

@@ -13,6 +13,20 @@ from torchinfo import summary
 
 
 class Mlp(nn.Module):
+    def __init__(self,embed_dim,mlp_ratio=2.0,dropout=0.):
+        super().__init__()
+        self.fc1 = nn.Linear(embed_dim,int(embed_dim*mlp_ratio))
+        self.fc2 = nn.Linear(int(embed_dim*mlp_ratio),embed_dim)
+        self.dropout = nn.Dropout(dropout)
+        self.act = nn.GELU()
+    def forward(self,x):
+        x = self.fc1(x)
+        x = self.act(x)
+        x = self.dropout(x)
+        x = self.fc2(x)
+        x = self.dropout(x)
+        return x
+
     def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0.):
         super().__init__()
         out_features = out_features or in_features
@@ -88,18 +102,18 @@ class WindowAttention(nn.Module):
 
         # define a parameter table of relative position bias
         self.relative_position_bias_table = nn.Parameter(
-            torch.zeros((2 * window_size[0] - 1) * (2 * window_size[1] - 1), num_heads))  # 2*Wh-1 * 2*Ww-1, nH
+            torch.zeros((2 * window_size - 1) * (2 * window_size - 1), num_heads))  # 2*Wh-1 * 2*Ww-1, nH
 
         # get pair-wise relative position index for each token inside the window
-        coords_h = torch.arange(self.window_size[0])
-        coords_w = torch.arange(self.window_size[1])
+        coords_h = torch.arange(self.window_size)
+        coords_w = torch.arange(self.window_size)
         coords = torch.stack(torch.meshgrid([coords_h, coords_w]))  # 2, Wh, Ww
         coords_flatten = torch.flatten(coords, 1)  # 2, Wh*Ww
         relative_coords = coords_flatten[:, :, None] - coords_flatten[:, None, :]  # 2, Wh*Ww, Wh*Ww
         relative_coords = relative_coords.permute(1, 2, 0).contiguous()  # Wh*Ww, Wh*Ww, 2
-        relative_coords[:, :, 0] += self.window_size[0] - 1  # shift to start from 0
-        relative_coords[:, :, 1] += self.window_size[1] - 1
-        relative_coords[:, :, 0] *= 2 * self.window_size[1] - 1
+        relative_coords[:, :, 0] += self.window_size - 1  # shift to start from 0
+        relative_coords[:, :, 1] += self.window_size - 1
+        relative_coords[:, :, 0] *= 2 * self.window_size - 1
         relative_position_index = relative_coords.sum(-1)  # Wh*Ww, Wh*Ww
         self.register_buffer("relative_position_index", relative_position_index)
 
@@ -126,7 +140,7 @@ class WindowAttention(nn.Module):
         attn = (q @ k.transpose(-2, -1))
 
         relative_position_bias = self.relative_position_bias_table[self.relative_position_index.view(-1)].view(
-            self.window_size[0] * self.window_size[1], self.window_size[0] * self.window_size[1], -1)  # Wh*Ww,Wh*Ww,nH
+            self.window_size * self.window_size, self.window_size * self.window_size, -1)  # Wh*Ww,Wh*Ww,nH
         relative_position_bias = relative_position_bias.permute(2, 0, 1).contiguous()  # nH, Wh*Ww, Wh*Ww
         attn = attn + relative_position_bias.unsqueeze(0)
 
@@ -221,8 +235,8 @@ class SwinTransformerBlock(nn.Module):
 
         return attn_mask
 
-    def forward(self, x, x_size):
-        H, W = x_size
+    def forward(self, x):
+        H, W = self.input_resolution
         B, L, C = x.shape
         # assert L == H * W, "input feature has wrong size"
 
@@ -262,6 +276,41 @@ class SwinTransformerBlock(nn.Module):
         #x = x + self.drop_path(self.mlp(self.norm2(x)))
         x = x + self.drop_path(self.mlp(self.norm2(x)))
 
+        return x
+class SwinBlock(nn.Module):
+    def __init__(self,dim,num_heads,window_size,H):
+        super().__init__()
+        self.dim = dim
+        self.window_size = window_size
+        self.att_norm = nn.LayerNorm(dim)
+        self.attn = WindowAttention(dim=dim,window_size=window_size, num_heads=num_heads)
+        self.mlp = Mlp(dim)
+        self.mlp_norm = nn.LayerNorm(dim)
+        self.H=H
+        attn_mask = None
+        self.register_buffer("attn_mask", attn_mask)
+
+    def forward(self,x):
+
+        H=self.H
+        W=self.H
+        B,N,C = x.shape
+        h = x
+        x = self.att_norm(x)
+        x = x.reshape([B,H,W,C]) 
+        shift_x = x
+        x_windows = window_partition(shift_x,self.window_size)
+        x_windows = x_windows.reshape([-1,self.window_size*self.window_size,C])
+        attn_windows = self.attn(x_windows,mask = self.attn_mask)
+        attn_windows = attn_windows.reshape([-1,self.window_size,self.window_size,C])
+        shifted_x = window_reverse(attn_windows,self.window_size,H,W)
+        x = shifted_x          
+        x = x.reshape([B,-1,C])
+        x = h+x
+        h = x
+        x = self.mlp_norm(x)
+        x = self.mlp(x)
+        x = h+x
         return x
 
 class PatchMerging(nn.Module):
@@ -384,54 +433,46 @@ class RSTB(nn.Module):
         resi_connection: The convolutional block before residual connection.
     """
 
-    def __init__(self, dim, input_resolution, depth, num_heads, window_size,
-                 mlp_ratio=4., qkv_bias=True, qk_scale=None, drop=0., attn_drop=0.,
-                 drop_path=0., norm_layer=nn.LayerNorm, downsample=None, use_checkpoint=False,
-                 img_size=224, patch_size=4, resi_connection='1conv'):
+    def __init__(self, input_dim,embed_dim, num_heads, window_size,
+                  patch_size=4, resi_connection='1conv'):
         super(RSTB, self).__init__()
 
-        self.dim = dim
-        self.input_resolution = input_resolution
-
-        self.residual_group = BasicLayer(dim=dim,
-                                         input_resolution=input_resolution,
-                                         depth=depth,
-                                         num_heads=num_heads,
-                                         window_size=window_size,
-                                         mlp_ratio=mlp_ratio,
-                                         qkv_bias=qkv_bias, qk_scale=qk_scale,
-                                         drop=drop, attn_drop=attn_drop,
-                                         drop_path=drop_path,
-                                         norm_layer=norm_layer,
-                                         downsample=downsample,
-                                         use_checkpoint=use_checkpoint)
+        self.embed_dim=embed_dim
+        self.num_heads=num_heads
+        self.window_size=window_size
+        self.patch_size=patch_size
+        #self.patch_resolution = [image_size//patch_size,image_size//patch_size]
+        
 
         if resi_connection == '1conv':
-            self.conv = nn.Sequential(nn.Conv2d(dim*2, dim*2, 3, 1, 1),nn.LeakyReLU(negative_slope=0.2, inplace=True))
+            self.conv = nn.Sequential(nn.Conv2d(input_dim*2, input_dim*2, 3, 1, 1),nn.LeakyReLU(negative_slope=0.2, inplace=True))
 
         elif resi_connection == '3conv':
             # to save parameters and memory
-            self.conv = nn.Sequential(nn.Conv2d(dim, dim // 4, 3, 1, 1), nn.LeakyReLU(negative_slope=0.2, inplace=True),
-                                      nn.Conv2d(dim // 4, dim // 4, 1, 1, 0),
+            self.conv = nn.Sequential(nn.Conv2d(input_dim, input_dim // 4, 3, 1, 1), nn.LeakyReLU(negative_slope=0.2, inplace=True),
+                                      nn.Conv2d(input_dim // 4, input_dim // 4, 1, 1, 0),
                                       nn.LeakyReLU(negative_slope=0.2, inplace=True),
-                                      nn.Conv2d(dim // 4, dim, 3, 1, 1))
+                                      nn.Conv2d(input_dim // 4, input_dim, 3, 1, 1))
 
-        self.patch_embed = PatchEmbed(
-            img_size=img_size, patch_size=patch_size, in_chans=0, embed_dim=dim,
+        self.patch_embed = PatchEmbed( patch_size=patch_size, in_chans=input_dim, embed_dim=embed_dim,
             norm_layer=None)
 
-        self.patch_unembed = PatchUnEmbed(
-            img_size=img_size, patch_size=patch_size, in_chans=0, embed_dim=dim,
-            norm_layer=None)
+        
 
     def forward(self, x):
-        x_original=x
-        x_size = (x.shape[2],x.shape[3])
+        #x_original=x
+        #x_size = (x.shape[2],x.shape[3])
         #x_pos = x
-        x = self.patch_embed(x) #1*16394*4
+        _,_,_,image_size=x.shape
+        x = self.patch_embed(x) #1*16394*4 ([1, 1024, 64])
         #return self.conv(self.patch_unembed(self.residual_group(x, x_size), x_size))
-
-        return self.patch_unembed(self.residual_group(x, x_size), x_size)+x_original
+        self.residual_group = SwinBlock(dim=self.embed_dim,num_heads=self.num_heads, window_size=self.window_size,H=image_size).cuda()
+        x=self.residual_group(x)
+        self.patch_unembed = PatchUnEmbed(
+            img_size=image_size,  patch_size=self.patch_size, embed_dim=self.embed_dim,
+            norm_layer=None)
+        x=self.patch_unembed(x)
+        return x
 
 
 
@@ -446,18 +487,18 @@ class PatchEmbed(nn.Module):
         norm_layer (nn.Module, optional): Normalization layer. Default: None
     """
 
-    def __init__(self, img_size=224, patch_size=4, in_chans=3, embed_dim=96, norm_layer=None):
+    def __init__(self,  patch_size=4, in_chans=3, embed_dim=96, norm_layer=None):
         super().__init__()
-        img_size = to_2tuple(img_size)
-        patch_size = to_2tuple(patch_size)
-        patches_resolution = [img_size[0] // patch_size[0], img_size[1] // patch_size[1]]
-        self.img_size = img_size
-        self.patch_size = patch_size
-        self.patches_resolution = patches_resolution
-        self.num_patches = patches_resolution[0] * patches_resolution[1]
-        #self.proj = nn.Conv2d(in_chans, embed_dim, kernel_size=patch_size, stride=patch_size)
-        self.in_chans = in_chans
-        self.embed_dim = embed_dim
+        # img_size = to_2tuple(img_size)
+        # patch_size = to_2tuple(patch_size)
+        # patches_resolution = [img_size[0] // patch_size[0], img_size[1] // patch_size[1]]
+        # self.img_size = img_size
+        # self.patch_size = patch_size
+        # self.patches_resolution = patches_resolution
+        # self.num_patches = patches_resolution[0] * patches_resolution[1]
+        self.proj = nn.Conv2d(in_chans, embed_dim, kernel_size=patch_size, stride=patch_size)
+        # self.in_chans = in_chans
+        # self.embed_dim = embed_dim
 
         if norm_layer is not None:
             self.norm = norm_layer(embed_dim)
@@ -465,7 +506,7 @@ class PatchEmbed(nn.Module):
             self.norm = None
 
     def forward(self, x):
-        #x = self.proj(x)
+        x = self.proj(x) ## B C Ph*Pw 
         x = x.flatten(2).transpose(1, 2)  # B Ph*Pw C
         if self.norm is not None:
             x = self.norm(x)
@@ -486,44 +527,43 @@ class PatchUnEmbed(nn.Module):
 
     def __init__(self, img_size=224, patch_size=4, in_chans=3, embed_dim=96, norm_layer=None):
         super().__init__()
-        img_size = to_2tuple(img_size)
-        patch_size = to_2tuple(patch_size)
-        patches_resolution = [img_size[0] // patch_size[0], img_size[1] // patch_size[1]]
+        # img_size = to_2tuple(img_size)
+        # patch_size = to_2tuple(patch_size)
+        #patches_resolution = [img_size[0] // patch_size[0], img_size[1] // patch_size[1]]
         self.img_size = img_size
-        self.patch_size = patch_size
-        self.patches_resolution = patches_resolution
-        self.num_patches = patches_resolution[0] * patches_resolution[1]
-
+        #self.patch_size = patch_size
+        #self.patches_resolution = patches_resolution
+        #self.num_patches = patches_resolution[0] * patches_resolution[1]
+        self.patch_resolution = img_size//patch_size
         self.in_chans = in_chans
         self.embed_dim = embed_dim
 
-    def forward(self, x, x_size):
+    def forward(self, x):
         B, HW, C = x.shape
         #x = x.transpose(1, 2).view(B, self.embed_dim*2, x_size[0]//2, x_size[1]//2)  # B Ph*Pw C
-        x = x.transpose(1, 2).view(B, self.embed_dim, x_size[0], x_size[1])
+        x = x.transpose(1, 2).view(B, self.embed_dim, self.patch_resolution, self.patch_resolution)
         return x
 
 
-#device = torch.device("cuda" if torch.cuda.is_available() else "cpu") # PyTorch v0.4.0
-#model =RSTB(     dim=4,
-                 # input_resolution=(128,128),
-                 # # input_resolution=(1024, 1024),
-                 # depth=1,
-                 # num_heads=4,
-                 # window_size=8,
-                 # mlp_ratio=1,
-                 # qkv_bias=True, qk_scale=None,
-                 # drop=0., attn_drop=0.,
-                 # drop_path=0.,  # no impact on SR results
-                 # norm_layer=nn.LayerNorm,
-                 # downsample=PatchMerging,
-                 # use_checkpoint=False,
-                 # img_size=128,
-                 # patch_size=4,
-                 # resi_connection='1conv').to(device)
-# x=torch.rand(1,4, 1024,1024)
-# y=model(x)
-# summary(model, (1,4, 128,128))
+# device = torch.device("cuda" if torch.cuda.is_available() else "cpu") # PyTorch v0.4.0
+# model =RSTB(    input_dim=4,
+#                 embed_dim=64,
+#                  image_size=64,
+#                  # input_resolution=(1024, 1024),
+#                  #depth=1,
+#                  num_heads=4,
+#                  window_size=8,
+#                  #mlp_ratio=1,
+#                 #  qkv_bias=True, qk_scale=None,
+#                 #  drop=0., attn_drop=0.,
+#                 #  drop_path=0.,  # no impact on SR results
+#                 #  norm_layer=nn.LayerNorm,
+#                 #  downsample=PatchMerging,
+#                 #  use_checkpoint=False,
+#                  #img_size=128,
+#                  patch_size=2,
+#                  resi_connection='1conv').to(device)
+# summary(model, (1,4, 64,64))
 
 
 

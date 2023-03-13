@@ -116,6 +116,7 @@ class make_data():
             print('The number of pan patch is: ' + str(len(all_pan)))  # pan样本的个数
 
         if self.image_dirs.endswith ('test_full_res'):
+            len_ms=0
             for mat_name in os.listdir(source_ms_path):
                 if int(mat_name.split('.')[0]) <=self.test_pair:#每张图能剪出64张测试图片 其实只剪了五张就够了
                     # test_lrms = read_img2(source_ms_path + mat_name, 'imgMS')  # H*W*C
@@ -123,16 +124,22 @@ class make_data():
                     # crop_to_patch(test_pan, self.stride, all_pan, 'pan', self.ms_size, self.pan_size)  # pan样本存入all_pan
                     # crop_to_patch(test_lrms, self.stride, all_ms, 'ms', self.ms_size, self.pan_size)
 
-                    all_ms.append(read_img2(source_ms_path + mat_name, 'imgMS'))
-                    all_pan.append(read_img2(source_pan_path + mat_name, 'imgPAN'))
-            for i in range(len(all_pan)):
-                tiff_save(all_pan[i], str(i) + '_pan.tif', self.image_dirs)
-            for i in range(len(all_ms)):
-                tiff_save(all_ms[i], str(i) + '_lr.tif', self.image_dirs)
+                    # all_ms.append(read_img2(source_ms_path + mat_name, 'imgMS'))
+                    # all_pan.append(read_img2(source_pan_path + mat_name, 'imgPAN'))
+                    len_ms =len_ms+1
+                    tiff_save(read_img2(source_ms_path + mat_name, 'imgMS'), mat_name.split('.')[0] + '_lr.tif', self.image_dirs)
+                    tiff_save(read_img2(source_pan_path + mat_name, 'imgPAN'), mat_name.split('.')[0] + '_pan.tif', self.image_dirs)
+
+                    
+            # for i in range(len(all_pan)):
+            #     tiff_save(all_pan[i], str(i) + '_pan.tif', self.image_dirs)
+            # for i in range(len(all_ms)):
+            #     tiff_save(all_ms[i], str(i) + '_lr.tif', self.image_dirs)
             print('test_full_res generated')
-            print('The number of ms patch is: ' + str(len(all_ms)))  # ms样本的个数
-            print('The number of pan patch is: ' + str(len(all_pan)))  # pan样本的个数
+            print('The number of ms patch is: ' + str(len_ms))  # ms样本的个数
+            print('The number of pan patch is: ' + str(len_ms))  # pan样本的个数
         if self.image_dirs.endswith ('test_low_res'):
+            len_ms=0
             source_RRms_path = self.source_path + '/MS_64/'
             source_RRpan_path = self.source_path + '/PAN_256/'
             for mat_name in os.listdir(source_ms_path):
@@ -144,19 +151,23 @@ class make_data():
                     # crop_to_patch(test_lrms, self.stride, all_ms, 'ms', self.ms_size, self.pan_size)
                     # crop_to_patch(gt, self.stride * 4, all_gt, 'ms', self.ms_size * 4, self.pan_size * 4)
 
-                    all_pan.append(read_img2(source_RRpan_path + mat_name, 'LRPAN'))
-                    all_ms.append(read_img2(source_RRms_path + mat_name, 'LRMS'))
-                    all_gt.append(read_img2(source_ms_path + mat_name, 'imgMS'))
-            for i in range(len(all_pan)):
-                tiff_save(all_pan[i], str(i) + '_pan.tif', self.image_dirs)
-            for i in range(len(all_ms)):
-                tiff_save(all_ms[i], str(i) + '_lr.tif', self.image_dirs)
-            for i in range(len(all_gt)):
-                tiff_save(all_gt[i], str(i) + '_mul.tif', self.image_dirs)
+                    #all_pan.append(read_img2(source_RRpan_path + mat_name, 'LRPAN'))
+                    tiff_save(read_img2(source_RRpan_path + mat_name, 'LRPAN'), mat_name.split('.')[0] + '_pan.tif', self.image_dirs)
+                    #all_ms.append(read_img2(source_RRms_path + mat_name, 'LRMS'))
+                    tiff_save(read_img2(source_RRms_path + mat_name, 'LRMS'), mat_name.split('.')[0] + '_lr.tif', self.image_dirs)
+                    #all_gt.append(read_img2(source_ms_path + mat_name, 'imgMS'))
+                    tiff_save(read_img2(source_ms_path + mat_name, 'imgMS'), mat_name.split('.')[0]+ '_mul.tif', self.image_dirs)
+                    len_ms=len_ms+1
+            # for i in range(len(all_pan)):
+            #     tiff_save(all_pan[i], str(i) + '_pan.tif', self.image_dirs)
+            # for i in range(len(all_ms)):
+            #     tiff_save(all_ms[i], str(i) + '_lr.tif', self.image_dirs)
+            # for i in range(len(all_gt)):
+            #     tiff_save(all_gt[i], str(i) + '_mul.tif', self.image_dirs)
             print('test_low_res generated')
-            print('The number of ms patch is: ' + str(len(all_ms)))  # ms样本的个数
-            print('The number of pan patch is: ' + str(len(all_pan)))  # pan样本的个数
-            print('The number of gt patch is: ' + str(len(all_gt)))  # pan样本的个数
+            print('The number of ms patch is: ' + str(len_ms))  # ms样本的个数
+            print('The number of pan patch is: ' + str(len_ms))  # pan样本的个数
+            print('The number of gt patch is: ' + str(len_ms))  # pan样本的个数
 
         if self.image_dirs.endswith ('train_low_res'):
             source_RRms_path = self.source_path + '/MS_64/'

@@ -14,16 +14,7 @@ from function.eval import SAM_torch,D_s_torch,D_lambda_torch
 from function.utilis import *
 from function.data_utils import *
 from tensorboardX import SummaryWriter
-# from pangan import generator2
-#from models.model_Unet import Unet_transformer,Unet
-#from models.model_TFnet import TFNet,TFNet_transfomer,TFNet_transfomer_best,TFNet_transfomer_multiblock
-# from models.LDP_net import LDP_Net
-#from models.model_MSDCNN import MSDCNN_model
-#from models.model_fusionnet import FusionNet
-#from models.model_LAGConv import LACNET
-#from models.Pan_former import CrossSwinTransformer
-from models.my_transformer import my_model_3_9_2
-#from models.NLRNET import NLRNet
+
 print(torch.cuda.device_count())
 print(torch.cuda.current_device())
 
@@ -54,9 +45,9 @@ def main(cfg, logger):
     # model = Pangan()
 
     #模型的结构 改1
-    G = my_model_3_9_2()
+    G = cfg.MODEL
     # G = Stage2()
-    G_resume = my_model_3_9_2()
+    G_resume = cfg.MODEL
     #损失函数 改2
     #G_loss_func = unsuper_loss()
     G_loss_func=super_loss(cfg.loss_type)
@@ -156,6 +147,7 @@ def main(cfg, logger):
                 print('SCC', round(np.mean(SCC), 4), round(np.var(SCC), 4))
 
                 # train every epoch
+        else :logger.info('==>Test path doesnot exist')
     else:
         logger.info('==>loading training data...')
         logger.info(cfg.train_set_cfg['dataset_train'])
@@ -163,8 +155,8 @@ def main(cfg, logger):
         train_dataloader = Data.DataLoader(dataset=train_dataset, batch_size=cfg.batch_size, shuffle=False,
                                            num_workers=cfg.threads,pin_memory=True)
         # # 产生验证数据
-        #make_data.generate_data(cfg.make_data_cfg['valid_data'])  # 当用于训练时 只有5对数据
-        #make_data.generate_data(cfg.make_data_cfg['valid_data_2'])
+        make_data.generate_data(cfg.make_data_cfg['valid_data'])  # 当用于训练时 只有5对数据
+        make_data.generate_data(cfg.make_data_cfg['valid_data_2'])
         valid_dataset = TestDatasetFromFolder(
             cfg.train_set_cfg['dataset_test'])  # 产生dataloader train_set_cfg给定读取测试图片的位置（full low)(何种数据集）
         valid_dataloader = Data.DataLoader(dataset=valid_dataset, batch_size=cfg.test_batch_size, shuffle=False,
