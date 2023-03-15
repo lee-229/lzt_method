@@ -31,8 +31,8 @@ source='/root/autodl-tmp/new_dataset/3 Gaofen-1/'
 ms_size=64
 #测试设置
 TIMESTAMP=datetime.datetime.now().strftime('%y-%m-%d-%H')
-test_STAMP='23-03-15-14'
-test_batch_size = 5
+test_STAMP='23-03-15-20'
+test_batch_size = 1
 #恢复训练设置
 start_epoch =1
 resumeG = ''
@@ -55,7 +55,7 @@ cuda = True
 device = torch.device("cuda:0" )
 device_ids = [0]
 parallel = True
-make_data = False
+make_data = True
 # resume
 threads = 4
 

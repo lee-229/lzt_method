@@ -76,7 +76,7 @@ def downgrade_images(I_MS, I_PAN, ratio, sensor):
     elif sensor == 'IKONOS':
 
         GNyq = np.asarray([0.26, 0.28, 0.29, 0.28], dtype='float32')  # Band Order: B,G,R,NIR
-        GNyqPan = 0.17;
+        GNyqPan = 0.17
     elif sensor == 'GeoEye1'or'WV4':
 
         GNyq = np.asarray([0.23, 0.23, 0.23, 0.23], dtype='float32')  # Band Order: B,G,R,NIR

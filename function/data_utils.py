@@ -5,7 +5,7 @@ from torch.utils.data.dataset import Dataset
 import numpy as np
 import scipy.io as scio
 import gdal
-from .utilis import auto_create_path
+from utilis import auto_create_path
 import mmcv
 import tifffile
 import cv2

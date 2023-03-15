@@ -1,10 +1,10 @@
-from function.functions import *
+from functions import *
 import os
 import numpy as np
 import torch
 import math
-from function.eval import D_s_numpy,D_lambda_numpy,SAM_numpy,ERGAS_numpy,Q4_numpy,SF_numpy,FCC_numpy
-from function.eval_matrics import scc
+from eval import D_s_numpy,D_lambda_numpy,SAM_numpy,ERGAS_numpy,Q4_numpy,SF_numpy,FCC_numpy
+from eval_matrics import scc
 # device = torch.device("cuda:1" )
 from skimage import data,filters
 def high_pass(img):
