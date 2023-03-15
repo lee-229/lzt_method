@@ -2,7 +2,7 @@
 import numpy as np
 import scipy.ndimage as snd
 import scipy.misc as misc
-from function.data_utils import load_image
+from data_utils import load_image
 import os
 from data_utils import read_img2
 # from resize_image import *
@@ -14,8 +14,9 @@ import cv2
 def get_image_id(filename):
     return filename.split('.')[0] #以-分割 并选定第一项
 
-path = '/media/dy113/disk1/Project_lzt/dataset/new_dataset/2 QuickBird'
-#原始文件的位置
+path = '/root/autodl-tmp/new_dataset/3 Gaofen-1'
+type='Gaofen-1'
+#原始文件的位置cd
 source_ms_path = path+'/MS_256'
 source_pan_path = path+'/PAN_1024'
 #新文件的位置
@@ -88,6 +89,8 @@ def NyquistFilterGenerator(Gnyq, ratio, N):
 def MTF(ratio, sensor, N=41):
     if (sensor == 'QB'):
         GNyq = np.asarray([0.34, 0.32, 0.30, 0.22])  # Bands Order: B,G,R,NIR
+    elif (sensor == 'GF-1'):
+        GNyq = np.asarray([0.208, 0.167, 0.174, 0.188])  # Bands Order: B,G,R,NIR
     elif ((sensor == 'Ikonos') or (sensor == 'IKONOS')):
         GNyq = np.asarray([0.26, 0.28, 0.29, 0.28])  # Bands Order: B,G,R,NIR
     elif (sensor == 'GeoEye1') or (sensor == 'WV4'):
@@ -113,6 +116,8 @@ def MTF_PAN(ratio, sensor, N=41):
         GNyq = np.array([0.11])
     elif (sensor == 'WV3'):
         GNyq = np.array([0.14])
+    elif (sensor == 'GF-1'):
+        GNyq = np.array([0.18])
     else:
         GNyq = np.array([0.15])
     return NyquistFilterGenerator(GNyq, ratio, N)
@@ -280,6 +285,14 @@ for i in range(len(os.listdir(source_ms_path))):
     name = str(i+1)+'.mat' #1-500
     # MS= load_image(os.path.join(source_ms_path,i+'-MUL.tif')) #[C, H, W]
     # PAN = load_image(os.path.join(source_pan_path,i+'-PAN.tif')) #[4H, 4W]
+    #为了解决高分一号数据集不一致的问题
+    # print(i)
+    # if i>105 and type=='Gaofen-1':
+    #     MS = read_img2(os.path.join(source_ms_path,name),'I_MS')#[C,H,W]  
+    #     PAN = read_img2(os.path.join(source_pan_path,name),'I_PAN')#[C,H,W]
+    #     scio.savemat(os.path.join(source_pan_path,name), {'imgPAN': PAN})#H/4*W/4*C
+    #     scio.savemat(os.path.join(source_ms_path,name), {'imgMS': MS})
+
     MS = read_img2(os.path.join(source_ms_path,name),'imgMS').transpose(2,0,1)#[C,H,W]
     PAN = read_img2(os.path.join(source_pan_path,name),'imgPAN')#[C,H,W]
     all_ms.append(MS)
@@ -289,7 +302,7 @@ ms = torch.FloatTensor(all_ms)
 print(pan.shape)
 print(ms.shape)
 
-I_MS_LR, I_PAN_LR = wald_protocol(ms, pan, 4, 'QB', channels=4)#[C,H,W]
+I_MS_LR, I_PAN_LR = wald_protocol(ms, pan, 4, 'GF-1', channels=4)#[C,H,W]
 for name in os.listdir(source_ms_path):
     #保存为.mat格式
     dataNew_ms = os.path.join(source_RRms_path, name)

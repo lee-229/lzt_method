@@ -529,23 +529,18 @@ class SwinBlock(nn.Module):
 class SwinBlock_change(nn.Module):
     def __init__(self, dim, heads, head_dim, mlp_dim, shifted, window_size, relative_pos_embedding, cross_attn):
         super().__init__()
-        self.norm1=nn.LayerNorm(dim)
-        self.attention_block = Residual(WindowAttention(dim=dim,
-                                                        heads=heads,
-                                                        head_dim=head_dim,
-                                                        shifted=shifted,
-                                                        window_size=window_size,
-                                                        relative_pos_embedding=relative_pos_embedding,
-                                                        cross_attn=cross_attn))
-        self.mlp_block = Residual(FeedForward(dim=dim, hidden_dim=mlp_dim))
+        self.attention_block = Residual(PreNorm(dim, WindowAttention(dim=dim,
+                                                                     heads=heads,
+                                                                     head_dim=head_dim,
+                                                                     shifted=shifted,
+                                                                     window_size=window_size,
+                                                                     relative_pos_embedding=relative_pos_embedding,
+                                                                     cross_attn=cross_attn)))
+        #self.mlp_block = Residual(PreNorm(dim, FeedForward(dim=dim, hidden_dim=mlp_dim)))
 
-    def forward(self, x_size,x, y=None):
+    def forward(self, x, y=None):
         x = self.attention_block(x, y=y)
-        H, W = x_size
-        B, L, C = x.shape
-        x = x.view(B, H * W, C)
-        x = self.norm1(x)
-        x = self.mlp_block(x)
+        #x = self.mlp_block(x)
         return x
 
 class PatchMerging(nn.Module):
@@ -609,6 +604,60 @@ class SwinModule(nn.Module):
             # [N, hidden_dim,  H//downscaling_factor, W//downscaling_factor]
 
 
+# class SwinModule_change(nn.Module):
+#     def __init__(self, in_channels, hidden_dimension, layers, downscaling_factor, num_heads, head_dim, window_size,
+#                  relative_pos_embedding, cross_attn):
+#         r"""
+#         Args:
+#             in_channels(int): 输入通道数
+#             hidden_dimension(int): 隐藏层维数，patch_partition提取patch时有个Linear学习的维数
+#             layers(int): swin block数，必须为2的倍数，连续的，regular block和shift block
+#             downscaling_factor: H,W上下采样倍数
+#             num_heads: multi-attn 的 attn 头的个数
+#             head_dim:   每个attn 头的维数
+#             window_size:    窗口大小，窗口内进行attn运算
+#         """
+#         super().__init__()
+#         assert layers % 2 == 0, 'Stage layers need to be divisible by 2 for regular and shifted block.'
+#         self.norm1=nn.LayerNorm(in_channels)
+#         self.patch_embed = PatchEmbed()
+#         self.patch_partition = PatchMerging(in_channels=in_channels, out_channels=hidden_dimension,
+#                                             downscaling_factor=downscaling_factor)
+
+#         self.layers = nn.ModuleList([])
+#         for _ in range(layers // 2):
+#             self.layers.append(nn.ModuleList([
+#                 SwinBlock_change(dim=hidden_dimension, heads=num_heads, head_dim=head_dim, mlp_dim=hidden_dimension * 4,
+#                           shifted=False, window_size=window_size, relative_pos_embedding=relative_pos_embedding,
+#                           cross_attn=cross_attn),
+#                 SwinBlock_change(dim=hidden_dimension, heads=num_heads, head_dim=head_dim, mlp_dim=hidden_dimension * 4,
+#                           shifted=True, window_size=window_size, relative_pos_embedding=relative_pos_embedding,
+#                           cross_attn=cross_attn),
+#             ]))
+
+#     def forward(self, x, y=None):
+#         if y is None:
+#             x_size = (x.shape[2],x.shape[3])
+#             H, W = x_size
+#             x = self.patch_partition(x)  # [N, H//downscaling_factor, W//downscaling_factor, hidden_dim]
+#             x = self.patch_embed(x)  # 1*16394*4
+#             B, L, C = x.shape
+#             # assert L == H * W, "input feature has wrong size"
+#             x = self.norm1(x)
+#             x = x.view(B, H, W, C)
+#             #x = self.patch_partition(x)  # [N, H//downscaling_factor, W//downscaling_factor, hidden_dim]
+#             for regular_block, shifted_block in self.layers:
+#                 x = regular_block(x_size,x)
+#                 x = shifted_block(x_size,x)
+#             return x.permute(0, 3, 1, 2)
+#             # [N, hidden_dim,  H//downscaling_factor, W//downscaling_factor]
+#         else:
+#             x = self.patch_partition(x)
+#             y = self.patch_partition(y)
+#             for regular_block, shifted_block in self.layers:
+#                 x = regular_block(x, y)
+#                 x = shifted_block(x, y)
+#             return x.permute(0, 3, 1, 2)
 class SwinModule_change(nn.Module):
     def __init__(self, in_channels, hidden_dimension, layers, downscaling_factor, num_heads, head_dim, window_size,
                  relative_pos_embedding, cross_attn):
@@ -623,46 +672,26 @@ class SwinModule_change(nn.Module):
             window_size:    窗口大小，窗口内进行attn运算
         """
         super().__init__()
-        assert layers % 2 == 0, 'Stage layers need to be divisible by 2 for regular and shifted block.'
-        self.norm1=nn.LayerNorm(in_channels)
-        self.patch_embed = PatchEmbed()
+        #assert layers % 2 == 0, 'Stage layers need to be divisible by 2 for regular and shifted block.'
+
         self.patch_partition = PatchMerging(in_channels=in_channels, out_channels=hidden_dimension,
                                             downscaling_factor=downscaling_factor)
 
-        self.layers = nn.ModuleList([])
-        for _ in range(layers // 2):
-            self.layers.append(nn.ModuleList([
-                SwinBlock_change(dim=hidden_dimension, heads=num_heads, head_dim=head_dim, mlp_dim=hidden_dimension * 4,
+        self.layers = SwinBlock_change(dim=hidden_dimension, heads=num_heads, head_dim=head_dim, mlp_dim=hidden_dimension * 4,
                           shifted=False, window_size=window_size, relative_pos_embedding=relative_pos_embedding,
-                          cross_attn=cross_attn),
-                SwinBlock_change(dim=hidden_dimension, heads=num_heads, head_dim=head_dim, mlp_dim=hidden_dimension * 4,
-                          shifted=True, window_size=window_size, relative_pos_embedding=relative_pos_embedding,
-                          cross_attn=cross_attn),
-            ]))
+                          cross_attn=cross_attn)
+                # SwinBlock(dim=hidden_dimension, heads=num_heads, head_dim=head_dim, mlp_dim=hidden_dimension * 4,
+                #           shifted=True, window_size=window_size, relative_pos_embedding=relative_pos_embedding,
+                #           cross_attn=cross_attn),
+
 
     def forward(self, x, y=None):
         if y is None:
-            x_size = (x.shape[2],x.shape[3])
-            H, W = x_size
+            original_x=x
             x = self.patch_partition(x)  # [N, H//downscaling_factor, W//downscaling_factor, hidden_dim]
-            x = self.patch_embed(x)  # 1*16394*4
-            B, L, C = x.shape
-            # assert L == H * W, "input feature has wrong size"
-            x = self.norm1(x)
-            x = x.view(B, H, W, C)
-            #x = self.patch_partition(x)  # [N, H//downscaling_factor, W//downscaling_factor, hidden_dim]
-            for regular_block, shifted_block in self.layers:
-                x = regular_block(x_size,x)
-                x = shifted_block(x_size,x)
+            x = self.layers(x)
             return x.permute(0, 3, 1, 2)
             # [N, hidden_dim,  H//downscaling_factor, W//downscaling_factor]
-        else:
-            x = self.patch_partition(x)
-            y = self.patch_partition(y)
-            for regular_block, shifted_block in self.layers:
-                x = regular_block(x, y)
-                x = shifted_block(x, y)
-            return x.permute(0, 3, 1, 2)
 
 # device = torch.device("cuda" if torch.cuda.is_available() else "cpu") # PyTorch v0.4.0
 # model = SwinModule_change(in_channels=4, hidden_dimension=64, layers=2,

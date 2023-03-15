@@ -177,6 +177,7 @@ class make_data():
                     train_pan=read_img2(source_RRpan_path + mat_name, 'LRPAN')
                     train_lrms=read_img2(source_RRms_path + mat_name, 'LRMS')
                     gt=read_img2(source_ms_path + mat_name, 'imgMS')
+                    
                     crop_to_patch(train_pan, self.stride, all_pan, 'pan', self.ms_size, self.pan_size)  # pan样本存入all_pan
                     crop_to_patch(train_lrms, self.stride, all_ms, 'ms', self.ms_size, self.pan_size)
                     crop_to_patch(gt, self.stride * 4, all_gt, 'ms', self.ms_size * 4, self.pan_size * 4)

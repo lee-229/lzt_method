@@ -3,39 +3,39 @@
 import os
 import torch
 import datetime
-#from models.model_Unet import Unet_transformer,Unet
-#from models.model_TFnet import TFNet
+#from models.model_Unet import Unet_transformer_3_12
+from models.model_TFnet import TFNet
 # #from models.LDP_net import LDP_Net
 # from models.model_MSDCNN import MSDCNN_model
 # from models.model_fusionnet import FusionNet
 # from models.model_LAGConv import LACNET
 # from models.Pan_former import CrossSwinTransformer
-from models.my_transformer import my_model_3_6_resnet_noTrans,my_model_3_10,my_model_3_11
+from models.my_transformer import my_model_3_11_4,my_model_3_10,my_model_3_13,my_model_3_13_2
 # from models.NLRNET import NLRNet
 #训练设置
 test=False
-MODEL=my_model_3_11()
-model = 'my_model_3_11'
+MODEL=TFNet()
+model = 'TFNet'
 #batch size
 batch_size = 32
 #学习率
 lr = 1e-4
-step = 5
-decay_rate=0.99
+step =250
+decay_rate=0.5
 optimizer=torch.optim.Adam
 #损失函数
 loss_type='L1'
 #数据集
-dataset = 'WV4_small' #makedata中的data source也要改
-source='/root/autodl-tmp/new_dataset/4 WorldView-4/'
+dataset = 'GF_1_small' #makedata中的data source也要改
+source='/root/autodl-tmp/new_dataset/3 Gaofen-1/'
 ms_size=64
 #测试设置
 TIMESTAMP=datetime.datetime.now().strftime('%y-%m-%d-%H')
-test_STAMP='23-03-10-21'
+test_STAMP='23-03-15-14'
 test_batch_size = 5
 #恢复训练设置
-start_epoch =31
-resumeG = '/root/Pansharpening/Pansharpening/model_para/WV4_small/my_model_3_11/G/23-03-11-08/epoch30.pkl'
+start_epoch =1
+resumeG = ''
 
 test_type = 'test_full_res'
 test_type_2 = 'test_low_res'
@@ -43,14 +43,14 @@ valid_type = 'test_full_res'
 valid_type_2 = 'test_low_res'
 bit_depth = 11
 # test savedir
-savedir = './output/'
+savedir = '/root/autodl-tmp/output/'
 # train
-train_dir = './train/'
+train_dir = '/root/autodl-tmp/train/'
 train_type = 'train_low_res'# full是无监督 low是有监督
 data_type = "tanh"
 
 scale_factor = 4
-num_epochs = 150
+num_epochs = 120
 cuda = True
 device = torch.device("cuda:0" )
 device_ids = [0]
