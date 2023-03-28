@@ -1,10 +1,11 @@
-from functions import *
+from function.functions import *
 import os
 import numpy as np
 import torch
 import math
-from eval import D_s_numpy,D_lambda_numpy,SAM_numpy,ERGAS_numpy,Q4_numpy,SF_numpy,FCC_numpy
-from eval_matrics import scc
+from function.eval import D_s_numpy,D_lambda_numpy,SAM_numpy,ERGAS_numpy,Q4_numpy,SF_numpy,FCC_numpy,MPSNR_numpy
+from function.eval_matrics import scc
+from function.eval_new import D_lambda,D_s,qnr
 # device = torch.device("cuda:1" )
 from skimage import data,filters
 def high_pass(img):
@@ -90,7 +91,6 @@ def gaussianBlur(img,kernel_size,gaussian_variance):
 
 def torch2np(data):
     r""" transfer image from torch.Tensor to np.ndarray
-
     Args:
         data (torch.Tensor): image shape like [N, C, H, W]
     Returns:
@@ -115,7 +115,6 @@ def adjust_learning_rate(epoch,lr,step,decay_rate):
 
 def save_checkpoint(module, module_name,dataset,model_name,epoch,time):
     '''
-
     :param module: G  or D
     :param module_name: 'G'  or 'D'
     :param dataset: 数据集名称
@@ -145,7 +144,7 @@ def eval_compute(input_pan,input_lr,pansharpening,target,test_type,data_type,log
     tmp_results = {}
     eval_results = {}
     if test_type == 'test_low_res':
-        eval_metrics = ['SAM', 'ERGAS', 'Q4', 'SCC']
+        eval_metrics = ['SAM', 'ERGAS', 'PSNR', 'SCC']
     else:
         eval_metrics = ['D_lambda', 'D_s', 'QNR','SF','FCC']
 
@@ -162,8 +161,8 @@ def eval_compute(input_pan,input_lr,pansharpening,target,test_type,data_type,log
         #               data_type='tanh')  # 先转换成numpy 再保存RGB
         if test_type == 'test_full_res':
             if data_type == 'tanh':
-                tmp_results['D_lambda'].append(D_lambda_numpy(input_lr[i]/ 2 + 0.5, pansharpening[i]/ 2 + 0.5, sewar=False))
-                tmp_results['D_s'].append(D_s_numpy(input_lr[i]/ 2 + 0.5, input_pan[i]/ 2 + 0.5, pansharpening[i]/ 2 + 0.5, sewar=False))
+                tmp_results['D_lambda'].append(D_lambda_numpy(input_lr[i]/ 2 + 0.5, pansharpening[i]/ 2 + 0.5))
+                tmp_results['D_s'].append(D_s_numpy(input_lr[i]/ 2 + 0.5, input_pan[i]/ 2 + 0.5, pansharpening[i]/ 2 + 0.5 ))
                 tmp_results['QNR'].append((1 - tmp_results['D_lambda'][-1]) * (1 - tmp_results['D_s'][-1]))
                 tmp_results['SF'].append(SF_numpy(pansharpening[i]/2+0.5))
                 tmp_results['FCC'].append(FCC_numpy(input_pan[i]/ 2 + 0.5,pansharpening [i]/ 2 + 0.5))
@@ -181,7 +180,7 @@ def eval_compute(input_pan,input_lr,pansharpening,target,test_type,data_type,log
             if data_type == 'tanh':
                 tmp_results['SAM'].append(SAM_numpy(target[i]/ 2 + 0.5, pansharpening[i]/ 2 + 0.5, sewar=False))
                 tmp_results['ERGAS'].append(ERGAS_numpy(target[i]/ 2 + 0.5, pansharpening[i]/ 2 + 0.5, sewar=False))
-                tmp_results['Q4'].append(Q4_numpy(target[i]/ 2 + 0.5, pansharpening[i]/ 2 + 0.5))
+                tmp_results['PSNR'].append(MPSNR_numpy(target[i]/ 2 + 0.5, pansharpening[i]/ 2 + 0.5,1))
                 tmp_results['SCC'].append(scc(target[i]/ 2 + 0.5, pansharpening[i]/ 2 + 0.5))
             else:
                 tmp_results['SAM'].append(SAM_numpy(target[i], pansharpening[i], sewar=False))
@@ -199,7 +198,3 @@ def eval_compute(input_pan,input_lr,pansharpening,target,test_type,data_type,log
         eval_results[f'{metric}_std'].append(round(std, 4))
         #logger.info(f'{metric} metric value: {mean:.4f} +- {std:.4f}')
     return tmp_results
-
-
-
-

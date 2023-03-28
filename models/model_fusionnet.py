@@ -142,8 +142,6 @@ class FusionNet(nn.Module):
         super(FusionNet, self).__init__()
         # ConvTranspose2d: output = (input - 1)*stride + outpading - 2*padding + kernelsize
         self.spectral_num = 4
-
-
         self.conv1 = nn.Conv2d(in_channels=4, out_channels=32, kernel_size=3, stride=1, padding=1,
                                bias=True)
         self.res1 = Resblock()
@@ -176,6 +174,47 @@ class FusionNet(nn.Module):
         output = self.conv3(rs)  # Bsx8x64x64
 
         return output +x # lms + outs
+class FusionNet_8c(nn.Module):
+    def __init__(self):
+        super(FusionNet_8c, self).__init__()
+        # ConvTranspose2d: output = (input - 1)*stride + outpading - 2*padding + kernelsize
+        self.spectral_num = 8
+        self.conv1 = nn.Conv2d(in_channels=8, out_channels=32, kernel_size=3, stride=1, padding=1,
+                               bias=True)
+        self.res1 = Resblock()
+        self.res2 = Resblock()
+        self.res3 = Resblock()
+        self.res4 = Resblock()
+
+        self.conv3 = nn.Conv2d(in_channels=32, out_channels=8, kernel_size=3, stride=1, padding=1,
+                               bias=True)
+
+        self.relu = nn.ReLU(inplace=True)
+
+        self.backbone = nn.Sequential(  # method 2: 4 resnet repeated blocks
+            self.res1,
+            self.res2,
+            self.res3,
+            self.res4
+        )
+
+        init_weights(self.backbone, self.conv1, self.conv3)   # state initialization, important!
+        self.apply(init_weights)
+
+    def forward(self, y, x):  # x= lms; y = pan
+
+        pan_concat = y.repeat(1, self.spectral_num, 1, 1)  # Bsx8x64x64
+        input = torch.sub(pan_concat, x)  # Bsx8x64x64
+        rs = self.relu(self.conv1(input))  # Bsx32x64x64
+
+        rs = self.backbone(rs)  # ResNet's backbone!
+        output = self.conv3(rs)  # Bsx8x64x64
+
+        return torch.clamp(output +x, -1, 1)   # lms + outs
+
+
+
+
 # device = torch.device("cuda" if torch.cuda.is_available() else "cpu") # PyTorch v0.4.0
 # model = FusionNet().to(device)
 # summary(model, ((1,1, 128,128),(1,4, 128,128)))

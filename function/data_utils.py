@@ -4,12 +4,19 @@ from os import listdir
 from torch.utils.data.dataset import Dataset
 import numpy as np
 import scipy.io as scio
+from skimage.io import imsave
 import gdal
-from utilis import auto_create_path
 import mmcv
+import imageio
 import tifffile
 import cv2
 import torch
+def auto_create_path(FilePath):
+    if os.path.exists(FilePath):   ##目录存在，返回为真
+            print( 'dir exists' )
+    else:
+            print( 'dir not exists')
+            os.makedirs(FilePath)
 def _is_lr_image(filename):
     return filename.endswith("pan.tif") #查看是否以这个为结尾 是则返回真
 
@@ -25,7 +32,36 @@ def load_image(path):
     """
     img = np.array(gdal.Open(path).ReadAsArray(), dtype=np.double)
     return img
+def write_img(filename,  im_data):
 
+    #判断栅格数据的数据类型
+    if 'int8' in im_data.dtype.name:
+        datatype = gdal.GDT_Byte
+    elif 'int16' in im_data.dtype.name:
+        datatype = gdal.GDT_UInt16
+    else:
+        datatype = gdal.GDT_Float32
+
+    #判读数组维数
+    if len(im_data.shape) == 3:
+        im_bands, im_height, im_width = im_data.shape
+    else:
+        im_bands, (im_height, im_width) = 1, im_data.shape
+
+    #创建文件
+    driver = gdal.GetDriverByName("GTiff") 
+    dataset = driver.Create(filename, im_width, im_height, im_bands, datatype)
+
+    # dataset.SetGeoTransform(im_geotrans)       #写入仿射变换参数
+    # dataset.SetProjection(im_proj)          #写入投影
+
+    if im_bands == 1:
+        dataset.GetRasterBand(1).WriteArray(im_data) #写入数组数据
+    else:
+        for i in range(im_bands):
+            dataset.GetRasterBand(i+1).WriteArray(im_data[i])
+
+    del dataset
 
 def read_img2(path, name):
     img = scio.loadmat(path)[name]  # 读取matlab数据 生成字典格式 H*W*C
@@ -56,9 +92,12 @@ def tiff_save(img, img_name, img_path):
     #将图片保存为 c*h*w 和 h*w
     #img = img * 127.5 + 127.5  # 恢复到0-256
     save_path_1 = os.path.join(img_path, img_name)
+    if img.ndim==3:
+        img=img.transpose(2,0,1)
     img = img.squeeze()
    # img = img.astype('uint8')  # 从float转换成整形
-    tifffile.imsave(save_path_1, img)
+    #tifffile.imsave(save_path_1, img)#将HWC自动转换成CHW 四波段图像使用
+    write_img(save_path_1, img) 
 
 def upsample(original_msi,scale):
     new_lrhs = []
@@ -295,7 +334,8 @@ def tiff_save_img(img,img_path,bit_depth,data_type='sigmoid'):
         elif data_type =='tanh':
             img = img * 127.5+127.5
         img = img.astype('uint8')  # 从float转换成整形
-        tifffile.imsave(img_path, img)
+       # tifffile.imsave(img_path, img)
+        write_img(img_path, img) 
     else:
         if data_type == 'sigmoid':
             img = img * 2047  # 恢复到0-2047
@@ -304,10 +344,10 @@ def tiff_save_img(img,img_path,bit_depth,data_type='sigmoid'):
 
         N,M,c = img.shape[0],img.shape[1],img.shape[2]
         NM = N*M
-        IMG = np.zeros((N, M, c-1))
+        IMG = np.zeros((N, M, c))
         img= img.astype(np.uint16)
         #为了防止色彩失真 加入直方图均衡化
-        for i in range(3):
+        for i in range(c):
             b = (img[:,:,i].reshape(NM,1))
             hb,levelb=np.histogram(b, bins=b.max()-b.min(), range=None)
             chb = np.cumsum(hb)
@@ -320,7 +360,10 @@ def tiff_save_img(img,img_path,bit_depth,data_type='sigmoid'):
             IMG[:,:,i] = b.reshape(N,M) * 255
 
         IMG = IMG.astype('uint8')  # 从float转换成整形
-        cv2.imwrite(img_path, IMG[:, :, [0,1,2]]) #读入顺序为BGR 与波段顺序一致
+        if c==8:
+            cv2.imwrite(img_path, IMG[:, :, [1,2,4]]) #读入顺序为BGR 与波段顺序一致
+        if c==3:
+            cv2.imwrite(img_path, IMG[:, :, [0,1,2]]) 
 def tiff_save_img_no_his(img,img_path,bit_depth,data_type='sigmoid'):
     if img.ndim == 2:
         # img = img.squeeze()

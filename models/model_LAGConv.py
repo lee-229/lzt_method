@@ -129,7 +129,35 @@ class LACNET(nn.Module):
         x=self.tail_conv(x)
         sr=lms+x
         return sr
+class LACNET_8c(nn.Module):
+    def __init__(self):
+        super(LACNET_8c, self).__init__()
+        self.head_conv=nn.Sequential(
+            LAConv2D(9,32,3,1,1,use_bias=True),
+            nn.ReLU(inplace=True)
+        )
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu") # PyTorch v0.4.0
-model = LACNET().to(device)
-summary(model, ((1,1, 64,64),(1,4, 64,64)))
+        self.RB1=LACRB(32)
+        self.RB2=LACRB(32)
+        self.RB3=LACRB(32)
+        self.RB4=LACRB(32)
+        self.RB5=LACRB(32)
+
+        self.tail_conv=LAConv2D(32,8,3,1,1,use_bias=True)
+
+
+    def forward(self,pan,lms):
+        x=torch.cat([pan,lms],1)
+        x=self.head_conv(x)
+        x = self.RB1(x)
+        x = self.RB2(x)
+        x = self.RB3(x)
+        x = self.RB4(x)
+        x = self.RB5(x)
+        x=self.tail_conv(x)
+        sr=lms+x
+        return torch.clamp(sr, -1, 1)  
+
+# device = torch.device("cuda" if torch.cuda.is_available() else "cpu") # PyTorch v0.4.0
+# model = LACNET().to(device)
+# summary(model, ((1,1, 64,64),(1,4, 64,64)))

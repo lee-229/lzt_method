@@ -4,7 +4,7 @@ import argparse
 import os
 #os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 # os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID "
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 
 from mmcv import Config#MMCv的核心组件 config类
 from mmcv.utils import get_logger
@@ -107,26 +107,22 @@ def main(cfg, logger):
             logger.info('==> loading model {}'.format(cfg.pretrained))
             model_weights = torch.load(cfg.pretrained)
             G.load_state_dict(model_weights)
-            test(test_dataloader, G, cfg.savedir, cfg.test_type, cfg, logger)
+            #test(test_dataloader, G, cfg.savedir, cfg.test_type, cfg, logger)
             test(test_dataloader_2, G, cfg.savedir, cfg.test_type_2, cfg, logger)
-            with open(cfg.csv_FR_dir) as csv_file:
-                row = csv.reader(csv_file, delimiter=',')
-                next(row)  # 读取首行
-                D_lambda = []  # 建立一个数组来存储股价数据
-                D_s = []
-                QNR = []
-                # 读取除首行之后每一行的第二列数据，并将其加入到数组price之中
-                for r in row:
-                    D_lambda.append(float(r[1]))  # 将字符串数据转化为浮点型加入到数组之中
-                    D_s.append(float(r[2]))  # 将字符串数据转化为浮点型加入到数组之中
-                    QNR.append(float(r[3]))  # 将字符串数据转化为浮点型加入到数组之中
-                print('D_lambda', round(np.mean(D_lambda),4), round(np.var(D_lambda),4))
-                print('D_s', round(np.mean(D_s),4), round(np.var(D_s),4))
-                print('QNR', round(np.mean(QNR),4), round(np.var(QNR),4))
-
-            # xyf edited
-            # if os.path.exists(cfg.csv_RR_dir):
-            #     os.remove(cfg.csv_RR_dir)
+            # with open(cfg.csv_FR_dir) as csv_file:
+            #     row = csv.reader(csv_file, delimiter=',')
+            #     next(row)  # 读取首行
+            #     D_lambda = []  # 建立一个数组来存储股价数据
+            #     D_s = []
+            #     QNR = []
+            #     # 读取除首行之后每一行的第二列数据，并将其加入到数组price之中
+            #     for r in row:
+            #         D_lambda.append(float(r[1]))  # 将字符串数据转化为浮点型加入到数组之中
+            #         D_s.append(float(r[2]))  # 将字符串数据转化为浮点型加入到数组之中
+            #         QNR.append(float(r[3]))  # 将字符串数据转化为浮点型加入到数组之中
+            #     print('D_lambda', round(np.mean(D_lambda),4), round(np.var(D_lambda),4))
+            #     print('D_s', round(np.mean(D_s),4), round(np.var(D_s),4))
+            #     print('QNR', round(np.mean(QNR),4), round(np.var(QNR),4))
 
             with open(cfg.csv_RR_dir) as csv_file:
                 row = csv.reader(csv_file, delimiter=',')
@@ -217,7 +213,7 @@ def test(test_dataloader, G, save_img_dir,test_type,cfg,logger):
 
         #写表头
         if test_type == 'test_low_res':
-            header = ['image_index', 'SAM', 'ERGAS', 'Q4', 'SCC']
+            header = ['image_index', 'SAM', 'ERGAS', 'PSNR', 'SCC']
         else:
             header = ['image_index', 'D_lambda', 'D_s', 'QNR','SF','FCC']
             #返回字典
@@ -227,7 +223,7 @@ def test(test_dataloader, G, save_img_dir,test_type,cfg,logger):
                 Writer = csv.writer(file_obj, header)
                 if idx==0:
                     Writer.writerow(header)
-                Writer.writerow([image_index[0], np.array(results['SAM'][0]), np.array(results['ERGAS'][0]), np.array(results['Q4'][0]),np.array(results['SCC'][0])])
+                Writer.writerow([image_index[0], np.array(results['SAM'][0]), np.array(results['ERGAS'][0]), np.array(results['PSNR'][0]),np.array(results['SCC'][0])])
 
         else:
             with open(cfg.csv_FR_dir, 'a', encoding='utf-8', newline='') as file_obj:
@@ -338,30 +334,30 @@ def train_process(dataloader,valid_dataloader,valid_dataloader_2,
             writer.add_scalar('ERGAS',ergas, (epoch - 1) * len(dataloader) + iteration)
             writer.add_scalar('SAM', sam, (epoch - 1) * len(dataloader) + iteration)
             logger.info('epoch:[{}/{}]  ERGAS:{:.4f} SAM:{:.4f}'.format(epoch, cfg.num_epochs, ergas,sam))
-        for idx, batch in enumerate(valid_dataloader):
-            input_lr, input_pan, input_lr_up, target, image_index = batch[0], batch[1], batch[2], batch[3], batch[
-                4]  # 这里的index指的是在原始数数据集中的位置 便于找到测试图片
-            input_pan = input_pan.to(cfg.device)
-            input_lr = input_lr.to(cfg.device)
-            if (cfg.ms_size == 16):
-                prediction = G(input_pan, input_lr)
-            else:
-                prediction = G(input_pan, input_lr_up)
-            input_pan = torch2np(input_pan)
-            input_lr = torch2np(input_lr)
-            prediction = torch2np(prediction)
-            ##不同的模型生成表达式不同
-            # TFnet
-            D_lambda=[]
-            D_s=[]
-            QNR=[]
-            for i in range(input_lr.shape[0]):
-                D_lambda.append(D_lambda_numpy(input_lr[i], prediction[i]))
-                D_s.append( D_s_numpy(input_lr[i],input_pan[i], prediction[i]))
-                QNR.append((1 - D_lambda[i]) * (1 - D_s[i]))
-            qnr=np.array(QNR).mean()
-            writer.add_scalar('QNR', qnr, (epoch - 1) * len(dataloader) + iteration)
-            logger.info('epoch:[{}/{}] QNR:{:.4f} '.format(epoch, cfg.num_epochs, qnr))
+        # for idx, batch in enumerate(valid_dataloader):
+        #     input_lr, input_pan, input_lr_up, target, image_index = batch[0], batch[1], batch[2], batch[3], batch[
+        #         4]  # 这里的index指的是在原始数数据集中的位置 便于找到测试图片
+        #     input_pan = input_pan.to(cfg.device)
+        #     input_lr = input_lr.to(cfg.device)
+        #     if (cfg.ms_size == 16):
+        #         prediction = G(input_pan, input_lr)
+        #     else:
+        #         prediction = G(input_pan, input_lr_up)
+        #     input_pan = torch2np(input_pan)
+        #     input_lr = torch2np(input_lr)
+        #     prediction = torch2np(prediction)
+        #     ##不同的模型生成表达式不同
+        #     # TFnet
+        #     D_lambda=[]
+        #     D_s=[]
+        #     QNR=[]
+        #     for i in range(input_lr.shape[0]):
+        #         D_lambda.append(D_lambda_numpy(input_lr[i]/ 2 + 0.5, prediction[i]/ 2 + 0.5))
+        #         D_s.append( D_s_numpy(input_lr[i]/ 2 + 0.5,input_pan[i]/ 2 + 0.5, prediction[i]/ 2 + 0.5))
+        #         QNR.append((1 - D_lambda[i]) * (1 - D_s[i]))
+        #     qnr=np.array(QNR).mean()
+        #     writer.add_scalar('QNR', qnr, (epoch - 1) * len(dataloader) + iteration)
+        #     logger.info('epoch:[{}/{}] QNR:{:.4f} '.format(epoch, cfg.num_epochs, qnr))
 
 # testing code
 def test_process(test_dataloader, G, save_img_dir,test_type,cfg,logger,epoch):
