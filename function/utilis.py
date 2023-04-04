@@ -130,16 +130,17 @@ def save_checkpoint(module, module_name,dataset,model_name,epoch,time):
     print("Checkpoint saved to {}".format(model_parm_path))
 # 计算测试结果
 
-def eval_compute(input_pan,input_lr,pansharpening,target,test_type,data_type,logger):
+def eval_compute(input_pan,input_lr,pansharpening,target,test_type,cfg,logger):
     #计算融合图像的数值指标并打印出来
     """
      test_type = 'test_low_res'时为降尺度评估 ='test_full_res'时为全尺度评估
      data_type为数据的范围 即0-1或者-1 - 1
      """
     # torch to np
-    input_pan = torch2np(input_pan)  # shape of [N, H, W]
-    input_lr = torch2np(input_lr)  # shape of [N, H, W, C]
-    pansharpening = torch2np(pansharpening)
+    if(cfg.tradition==False):
+        input_pan = torch2np(input_pan)  # shape of [N, H, W]
+        input_lr = torch2np(input_lr)  # shape of [N, H, W, C]
+        pansharpening = torch2np(pansharpening)
     target = torch2np(target)
     tmp_results = {}
     eval_results = {}
@@ -151,7 +152,7 @@ def eval_compute(input_pan,input_lr,pansharpening,target,test_type,data_type,log
     for metric in eval_metrics:
         tmp_results.setdefault(metric, [])
     # batch_size的循环
-    for i in range(pansharpening.shape[0]):
+    for i in range(target.shape[0]):
         # img_name = str(image_index[i]) + '.tif'
         # tiff_save_img(output_np[i], os.path.join(save_pre_dir, img_name), cfg.bit_depth,
         #               data_type='tanh')  # 先转换成numpy 再保存RGB
@@ -160,7 +161,7 @@ def eval_compute(input_pan,input_lr,pansharpening,target,test_type,data_type,log
         # tiff_save_img(input_pan[i], os.path.join(save_pan_dir, img_name), cfg.bit_depth,
         #               data_type='tanh')  # 先转换成numpy 再保存RGB
         if test_type == 'test_full_res':
-            if data_type == 'tanh':
+            if cfg.data_type == 'tanh':
                 tmp_results['D_lambda'].append(D_lambda_numpy(input_lr[i]/ 2 + 0.5, pansharpening[i]/ 2 + 0.5))
                 tmp_results['D_s'].append(D_s_numpy(input_lr[i]/ 2 + 0.5, input_pan[i]/ 2 + 0.5, pansharpening[i]/ 2 + 0.5 ))
                 tmp_results['QNR'].append((1 - tmp_results['D_lambda'][-1]) * (1 - tmp_results['D_s'][-1]))
@@ -177,7 +178,7 @@ def eval_compute(input_pan,input_lr,pansharpening,target,test_type,data_type,log
                 tmp_results['FCC'].append(FCC_numpy(input_pan[i], pansharpening[i]))
             # image = torch.transpose(image, 1, 3)
         if test_type == 'test_low_res':
-            if data_type == 'tanh':
+            if cfg.data_type == 'tanh':
                 tmp_results['SAM'].append(SAM_numpy(target[i]/ 2 + 0.5, pansharpening[i]/ 2 + 0.5, sewar=False))
                 tmp_results['ERGAS'].append(ERGAS_numpy(target[i]/ 2 + 0.5, pansharpening[i]/ 2 + 0.5, sewar=False))
                 tmp_results['PSNR'].append(MPSNR_numpy(target[i]/ 2 + 0.5, pansharpening[i]/ 2 + 0.5,1))
@@ -189,12 +190,12 @@ def eval_compute(input_pan,input_lr,pansharpening,target,test_type,data_type,log
                 tmp_results['SCC'].append(scc(target[i], pansharpening[i]))
 
     #计算平均值 打印结果
-    for metric in eval_metrics:
-        eval_results.setdefault(f'{metric}_mean', [])
-        eval_results.setdefault(f'{metric}_std', [])
-        mean = np.mean(tmp_results[metric])
-        std = np.std(tmp_results[metric])
-        eval_results[f'{metric}_mean'].append(round(mean, 4))
-        eval_results[f'{metric}_std'].append(round(std, 4))
-        #logger.info(f'{metric} metric value: {mean:.4f} +- {std:.4f}')
+    # for metric in eval_metrics:
+    #     eval_results.setdefault(f'{metric}_mean', [])
+    #     eval_results.setdefault(f'{metric}_std', [])
+    #     mean = np.mean(tmp_results[metric])
+    #     std = np.std(tmp_results[metric])
+    #     eval_results[f'{metric}_mean'].append(round(mean, 4))
+    #     eval_results[f'{metric}_std'].append(round(std, 4))
+    #     #logger.info(f'{metric} metric value: {mean:.4f} +- {std:.4f}')
     return tmp_results

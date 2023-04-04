@@ -3,27 +3,23 @@
 import os
 import torch
 import datetime
-# from models.model_TFnet import TFNet_8c
-# from models.model_fusionnet import FusionNet_8c
-# from models.model_LAGConv import LACNET_8c
-# from models.Pan_former import CrossSwinTransformer_8c
-from models.my_transformer import my_model_3_13_easy_8c,my_model_3_13_easy_ablation_8c
-# from models.model_MSDCNN import MSDCNN_model_8c
+# from models.model_TFnet import TFNet
+# from models.model_fusionnet import FusionNet
+# from models.model_LAGConv import LACNET
+# from models.Pan_former import CrossSwinTransformer
+from models.my_transformer import my_model_3_31_2,my_model_3_30,my_model_3_30_6,my_model_3_31_1
+from models.my_transformer_new import my_model_4_4_3
+# from models.model_MSDCNN import MSDCNN_model
 # # from models.NLRNET import NLRNet
-# from models.model_pannet import PanNet_model_8c
-
-
-from models.GSA import GSA
+# from models.model_pannet import PanNet_model
+# from models.GSA import GSA
 #训练设置
-test=True
+test=False
 tradition=False
 cuda = True
-MODEL=my_model_3_13_easy_ablation_8c()
-model = 'my_model_3_13_easy_ablation_8c'
-#batch si;'
-
-
-
+MODEL=my_model_3_31_2()
+model = 'my_model_3_31_2'
+#batch size
 batch_size = 32
 #学习率
 if model=='TFNet':
@@ -35,8 +31,8 @@ if model=='TFNet':
     #损失函数
     loss_type='L1'
     #测试设置
-    test_STAMP='23-03-21-15'
-    num_epochs = 70
+    test_STAMP='23-03-29-10'
+    num_epochs = 120
 elif model=='Panformer':
     ms_size=16
     lr = 1e-4
@@ -46,7 +42,7 @@ elif model=='Panformer':
     #损失函数
     loss_type='L1'
     #测试设置
-    test_STAMP='23-03-22-10'
+    test_STAMP='23-03-29-15'
     num_epochs = 130
 elif model=='FusionNet':
     ms_size=64
@@ -57,18 +53,18 @@ elif model=='FusionNet':
     #损失函数
     loss_type='L2'
     #测试设置
-    test_STAMP='23-03-21-21'
+    test_STAMP='23-03-29-10'
     num_epochs = 130
 elif model=='LACNET':
     ms_size=64
     lr = 1e-4
-    step =100
-    decay_rate=0.5
+    step =500
+    decay_rate=0.1
     optimizer=torch.optim.Adam
     #损失函数
     loss_type='L2'
     #测试设置
-    test_STAMP='23-03-21-22'
+    test_STAMP='23-03-29-11'
     num_epochs = 120
 elif model=='PanNet':
     ms_size=16
@@ -81,7 +77,7 @@ elif model=='PanNet':
     #测试设置
     test_STAMP='23-03-22-16'
     num_epochs = 150
-elif model=='MSDCNN_model_8c':
+elif model=='MSDCNN_model':
     ms_size=64
     lr = 1e-4
     step =60
@@ -90,7 +86,7 @@ elif model=='MSDCNN_model_8c':
     #损失函数
     loss_type='L2'
     #测试设置
-    test_STAMP='23-03-29-20'
+    test_STAMP='23-03-29-18'
     num_epochs = 130
 elif model=='GSA':
     ms_size=16
@@ -98,7 +94,7 @@ elif model=='GSA':
     num_epochs=0
     test_STAMP='23-03-28'
     loss_type='L2'
-elif model=="my_model_3_13_8c_ablation" :  
+elif model=='my_model_3_13_ablation':
     ms_size=64
     lr = 1e-4
     step =5
@@ -109,6 +105,63 @@ elif model=="my_model_3_13_8c_ablation" :
     #测试设置
     test_STAMP='23-03-30-09'
     num_epochs = 130
+elif model=='my_model_3_13_easy':
+    ms_size=64
+    lr = 1e-4
+    step =5
+    decay_rate=0.99
+    optimizer=torch.optim.Adam
+    #损失函数
+    loss_type='L1'
+    #测试设置
+    test_STAMP='23-03-30-11'
+    num_epochs = 130
+elif model=='my_model_3_13_easy_ablation':
+    ms_size=64
+    lr = 1e-4
+    step =5
+    decay_rate=0.99
+    optimizer=torch.optim.Adam
+    #损失函数
+    loss_type='L1'
+    #测试设置
+    test_STAMP='23-03-30-11'
+    num_epochs = 130
+elif model=='my_model_3_30_4':
+    ms_size=64
+    lr = 1e-4
+    step =5
+    decay_rate=0.99
+    optimizer=torch.optim.Adam
+    #损失函数
+    loss_type='L1'
+    #测试设置
+    test_STAMP='23-03-30-19'
+    num_epochs = 130
+elif model=='my_model_3_30_5':
+    ms_size=64
+    lr = 1e-4
+    step =5
+    decay_rate=0.99
+    optimizer=torch.optim.Adam
+    #损失函数
+    loss_type='L1'
+    #测试设置
+    test_STAMP='23-03-30-19'
+    num_epochs = 130
+elif model=='my_model_3_30_6':
+    ms_size=64
+    lr = 1e-4
+    step =5
+    decay_rate=0.99
+    optimizer=torch.optim.Adam
+    #损失函数
+    loss_type='L1'
+    #测试设置
+    test_STAMP='23-03-31-11'
+    num_epochs = 130
+
+
 else:
     ms_size=64
     lr = 1e-4
@@ -118,20 +171,20 @@ else:
     #损失函数
     loss_type='L1'
     #测试设置
-    test_STAMP='23-04-03-09'
+    test_STAMP='23-04-02-10'
     num_epochs = 130
 
 #数据集
-dataset = 'WV2_small' 
-source='/media/dy113/disk1/Project_lzt/dataset/5 WorldView-2'
+dataset = 'GF_small' 
+source='/media/dy113/disk1/Project_lzt/dataset/3 Gaofen-1'
 #
 #测试设置
 TIMESTAMP=datetime.datetime.now().strftime('%y-%m-%d-%H')
 
-test_batch_size = 1
+test_batch_size = 5
 #恢复训练设置
-start_epoch =101
-resumeG = '/media/dy113/disk1/Project_lzt/code/lzt_method/model_para/WV2_small/my_model_3_13_easy_ablation_8c/G/23-04-02-23/epoch100.pkl'
+start_epoch =1
+resumeG = ''
 
 test_type = 'test_full_res'
 test_type_2 = 'test_low_res'
@@ -190,7 +243,7 @@ if(test==True):
             stride=0,
             ms_size=0,
             pan_size=0,
-            test_pair =50,
+            test_pair =41,
             train_pair = 0),
         test_data_2=dict(
             image_dirs=os.path.join(train_dir, dataset, test_type_2),
@@ -198,7 +251,7 @@ if(test==True):
             stride=0,
             ms_size=0,
             pan_size=0,
-            test_pair=50,
+            test_pair=41,
             train_pair=0),
         
     )
@@ -229,7 +282,7 @@ else:
             ms_size=16,
             pan_size=64,
             test_pair =5,
-            train_pair = 22000),
+            train_pair = 16000),
         valid_data_2=dict(
             image_dirs=os.path.join(train_dir, dataset,valid_dir, test_type_2),
             source_path=source,
@@ -237,14 +290,14 @@ else:
             ms_size=16,
             pan_size=64,
             test_pair=5,
-            train_pair=22000),
+            train_pair=18000),
         train_data=dict(
             image_dirs=os.path.join(train_dir, dataset, train_type),
             source_path=source,
             stride=8,
             ms_size=16,
             pan_size=64,
-            test_pair=16,
-            train_pair=22000)
+            test_pair=41,
+            train_pair=18000)
     )
 

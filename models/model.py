@@ -226,7 +226,7 @@ class MultiResBlock_noConv(nn.Module):
         x_deepfeature5 = self.DeepFeature_Layer4(f5)
         x_deepfeature7 = self.DeepFeature_Layer5(f7)
         x_deepfeature_cat = torch.cat([x_deepfeature1,x_deepfeature3,x_deepfeature5,x_deepfeature7],dim=1)
-        #x_deepfeature_cat = self.se(x_deepfeature_cat)
+        x_deepfeature_cat = self.se(x_deepfeature_cat)
         y = x_deepfeature + x_deepfeature_cat
 
         
@@ -236,7 +236,58 @@ class MultiResBlock_noConv(nn.Module):
 
 
 
+class ChannelAttentionBlock(nn.Module):
+    def __init__(self, channel, reduction=4):
+        super(ChannelAttentionBlock, self).__init__()
+        self.reduction = reduction
+        self.dct_layer = nn.AdaptiveAvgPool2d(1)# DCTLayer(channel)
+        self.fc = nn.Sequential(
+            nn.Linear(channel, channel // reduction, bias=False),
+            nn.ReLU(inplace=True),
+            nn.Linear(channel // reduction, channel, bias=False),
+            nn.Sigmoid()
+        )
 
+    def forward(self,x):
+        n,c,h,w = x.size()
+        y = self.dct_layer(x).squeeze(-1).squeeze(-1)
+        y = self.fc(y).view(n, c, 1, 1)
+        return x * y.expand_as(x)
+
+
+#   Spatial Attention Block
+class SpatialAttentionBlock(nn.Module):
+    def __init__(self,channel):
+        super(SpatialAttentionBlock, self).__init__()
+         # Maximum pooling
+        self.featureMap_max = nn.Sequential(
+            nn.ReflectionPad2d(2),
+            nn.MaxPool2d(kernel_size=(5, 5), stride=(1, 1),padding=0)
+        )
+        # Average pooling
+        self.featureMap_avg = nn.Sequential(
+            nn.ReflectionPad2d(2),
+            nn.AvgPool2d(kernel_size=(5, 5), stride=(1,1), padding=0)
+        )
+
+        # Deviation pooling
+        # var = \sqrt(featureMap - featureMap_avg)^2
+
+        # Dimensionality Reduction
+        self.reduce_dim = nn.Sequential(
+            nn.Conv2d(in_channels=channel * 4, out_channels=channel, kernel_size=(3,3), stride=(1, 1), padding=1,bias=False),
+            nn.Conv2d(in_channels=channel,out_channels=channel,kernel_size=(1,1),stride=(1,1),bias=False),
+            nn.Sigmoid()
+        )
+
+    def forward(self,x):
+        x_max = self.featureMap_max(x)
+        x_avg = self.featureMap_avg(x)
+        x_var = torch.sqrt(torch.pow(x - x_avg,2) + 1e-7)
+
+        y = torch.cat([x_max,x_avg,x_var,x],dim=1)
+        z = self.reduce_dim(y)
+        return x * z
 
 def conv1x1(in_channels, out_channels, stride=1, padding=0, *args, **kwargs):
     # type: (int, int, int, int, Any, Any) -> nn.Conv2d
@@ -536,7 +587,7 @@ class SwinBlock_change(nn.Module):
                                                                      window_size=window_size,
                                                                      relative_pos_embedding=relative_pos_embedding,
                                                                      cross_attn=cross_attn)))
-        #self.mlp_block = Residual(PreNorm(dim, FeedForward(dim=dim, hidden_dim=mlp_dim)))
+        self.mlp_block = Residual(PreNorm(dim, FeedForward(dim=dim, hidden_dim=mlp_dim)))
 
     def forward(self, x, y=None):
         x = self.attention_block(x, y=y)
@@ -586,18 +637,28 @@ class SwinModule(nn.Module):
 
         self.patch_partition = PatchMerging(in_channels=in_channels, out_channels=hidden_dimension,
                                             downscaling_factor=downscaling_factor)
-
-        self.layers = SwinBlock(dim=hidden_dimension, heads=num_heads, head_dim=head_dim, mlp_dim=hidden_dimension * 4,
+        if layers==1:
+            self.layers=nn.Sequential(
+                    SwinBlock(dim=hidden_dimension, heads=num_heads, head_dim=head_dim, mlp_dim=hidden_dimension * 4,
+                            shifted=False, window_size=window_size, relative_pos_embedding=relative_pos_embedding,
+                            cross_attn=cross_attn)
+                    
+                )
+        if layers==2:
+            self.layers=nn.Sequential(
+                SwinBlock(dim=hidden_dimension, heads=num_heads, head_dim=head_dim, mlp_dim=hidden_dimension * 4,
                           shifted=False, window_size=window_size, relative_pos_embedding=relative_pos_embedding,
-                          cross_attn=cross_attn)
-                # SwinBlock(dim=hidden_dimension, heads=num_heads, head_dim=head_dim, mlp_dim=hidden_dimension * 4,
-                #           shifted=True, window_size=window_size, relative_pos_embedding=relative_pos_embedding,
-                #           cross_attn=cross_attn),
+                          cross_attn=cross_attn),
+                SwinBlock(dim=hidden_dimension, heads=num_heads, head_dim=head_dim, mlp_dim=hidden_dimension * 4,
+                          shifted=True, window_size=window_size, relative_pos_embedding=relative_pos_embedding,
+                          cross_attn=cross_attn),
+            )
+
 
 
     def forward(self, x, y=None):
         if y is None:
-            original_x=x
+            #original_x=x
             x = self.patch_partition(x)  # [N, H//downscaling_factor, W//downscaling_factor, hidden_dim]
             x = self.layers(x)
             return x.permute(0, 3, 1, 2)
@@ -660,7 +721,7 @@ class SwinModule(nn.Module):
 #             return x.permute(0, 3, 1, 2)
 class SwinModule_change(nn.Module):
     def __init__(self, in_channels, hidden_dimension, layers, downscaling_factor, num_heads, head_dim, window_size,
-                 relative_pos_embedding, cross_attn):
+                 relative_pos_embedding, cross_attn,shifted=False):
         r"""
         Args:
             in_channels(int): 输入通道数
@@ -677,26 +738,151 @@ class SwinModule_change(nn.Module):
         self.patch_partition = PatchMerging(in_channels=in_channels, out_channels=hidden_dimension,
                                             downscaling_factor=downscaling_factor)
 
-        self.layers = SwinBlock_change(dim=hidden_dimension, heads=num_heads, head_dim=head_dim, mlp_dim=hidden_dimension * 4,
-                          shifted=False, window_size=window_size, relative_pos_embedding=relative_pos_embedding,
-                          cross_attn=cross_attn)
-                # SwinBlock(dim=hidden_dimension, heads=num_heads, head_dim=head_dim, mlp_dim=hidden_dimension * 4,
-                #           shifted=True, window_size=window_size, relative_pos_embedding=relative_pos_embedding,
-                #           cross_attn=cross_attn),
+        if layers==1:
+            self.layers=nn.Sequential(
+                    SwinBlock_change(dim=hidden_dimension, heads=num_heads, head_dim=head_dim, mlp_dim=hidden_dimension * 4,
+                            shifted=False, window_size=window_size, relative_pos_embedding=relative_pos_embedding,
+                            cross_attn=cross_attn)
+                
+            )
+        if layers==2:#两个模块都不带MLP
+           self.layers=nn.Sequential(
+                SwinBlock_change(dim=hidden_dimension, heads=num_heads, head_dim=head_dim, mlp_dim=hidden_dimension * 4,
+                            shifted=False, window_size=window_size, relative_pos_embedding=relative_pos_embedding,
+                            cross_attn=cross_attn),
+                SwinBlock_change(dim=hidden_dimension, heads=num_heads, head_dim=head_dim, mlp_dim=hidden_dimension * 4,
+                          shifted=True, window_size=window_size, relative_pos_embedding=relative_pos_embedding,
+                          cross_attn=cross_attn),
+            )
+        if layers==3:#第一个模块带MLP 第二个模块不带
+            self.layers=nn.Sequential(
+                SwinBlock(dim=hidden_dimension, heads=num_heads, head_dim=head_dim, mlp_dim=hidden_dimension * 4,
+                            shifted=False, window_size=window_size, relative_pos_embedding=relative_pos_embedding,
+                            cross_attn=cross_attn),
+                SwinBlock_change(dim=hidden_dimension, heads=num_heads, head_dim=head_dim, mlp_dim=hidden_dimension * 4,
+                          shifted=True, window_size=window_size, relative_pos_embedding=relative_pos_embedding,
+                          cross_attn=cross_attn),
+            )
+        if layers==4:#两个模块都用multiblock替代MLP
+            self.layers=nn.Sequential(
+                SwinBlock_change(dim=hidden_dimension, heads=num_heads, head_dim=head_dim, mlp_dim=hidden_dimension * 4,
+                            shifted=False, window_size=window_size, relative_pos_embedding=relative_pos_embedding,
+                            cross_attn=cross_attn),
+                MultiResBlock_noConv(hidden_dimension, hidden_dimension, 3),
+                SwinBlock_change(dim=hidden_dimension, heads=num_heads, head_dim=head_dim, mlp_dim=hidden_dimension * 4,
+                          shifted=True, window_size=window_size, relative_pos_embedding=relative_pos_embedding,
+                          cross_attn=cross_attn),
+                MultiResBlock_noConv(hidden_dimension, hidden_dimension, 3),
+            )
+            
+
 
 
     def forward(self, x, y=None):
         if y is None:
-            original_x=x
+            #original_x=x
             x = self.patch_partition(x)  # [N, H//downscaling_factor, W//downscaling_factor, hidden_dim]
             x = self.layers(x)
             return x.permute(0, 3, 1, 2)
             # [N, hidden_dim,  H//downscaling_factor, W//downscaling_factor]
+class SwinModule_new(nn.Module):
+    def __init__(self, in_channels, hidden_dimension, layers, downscaling_factor, num_heads, head_dim, window_size,
+                 relative_pos_embedding, cross_attn,shifted=False):
+        r"""
+        Args:
+            in_channels(int): 输入通道数
+            hidden_dimension(int): 隐藏层维数，patch_partition提取patch时有个Linear学习的维数
+            layers(int): swin block数，必须为2的倍数，连续的，regular block和shift block
+            downscaling_factor: H,W上下采样倍数
+            num_heads: multi-attn 的 attn 头的个数
+            head_dim:   每个attn 头的维数
+            window_size:    窗口大小，窗口内进行attn运算
+        """
+        super().__init__()
+        #assert layers % 2 == 0, 'Stage layers need to be divisible by 2 for regular and shifted block.'
 
-# device = torch.device("cuda" if torch.cuda.is_available() else "cpu") # PyTorch v0.4.0
-# model = SwinModule_change(in_channels=4, hidden_dimension=64, layers=2,
+        self.patch_partition = PatchMerging(in_channels=in_channels, out_channels=hidden_dimension,
+                                            downscaling_factor=downscaling_factor)
+
+        
+        self.layer1=nn.Sequential(
+                SwinBlock_change(dim=hidden_dimension, heads=num_heads, head_dim=head_dim, mlp_dim=hidden_dimension * 4,
+                            shifted=False, window_size=window_size, relative_pos_embedding=relative_pos_embedding,
+                            cross_attn=cross_attn),)
+        self.layer2=MultiResBlock_noConv(hidden_dimension, hidden_dimension, 3)
+        self.layer3= SwinBlock_change(dim=hidden_dimension, heads=num_heads, head_dim=head_dim, mlp_dim=hidden_dimension * 4,
+                          shifted=True, window_size=window_size, relative_pos_embedding=relative_pos_embedding,
+                          cross_attn=cross_attn)       
+        self.layer4=MultiResBlock_noConv(hidden_dimension, hidden_dimension, 3)
+            
+            
+
+
+
+    def forward(self, x, y=None):
+        if y is None:
+            #original_x=x
+            x = self.patch_partition(x)  # [N, H//downscaling_factor, W//downscaling_factor, hidden_dim]
+            x = self.layer1(x)
+            x=x.permute(0, 3, 1, 2)
+            x=self.layer2(x)
+            x=x.permute(0, 2,3,1)
+            x=self.layer3(x)
+            x=x.permute(0, 3, 1, 2)
+            x=self.layer4(x)
+            return x 
+            # [N, hidden_dim,  H//downscaling_factor, W//downscaling_factor]
+class SwinModule_new_1(nn.Module):
+    def __init__(self, in_channels, hidden_dimension, layers, downscaling_factor, num_heads, head_dim, window_size,
+                 relative_pos_embedding, cross_attn,shifted=False):
+        r"""
+        Args:
+            in_channels(int): 输入通道数
+            hidden_dimension(int): 隐藏层维数，patch_partition提取patch时有个Linear学习的维数
+            layers(int): swin block数，必须为2的倍数，连续的，regular block和shift block
+            downscaling_factor: H,W上下采样倍数
+            num_heads: multi-attn 的 attn 头的个数
+            head_dim:   每个attn 头的维数
+            window_size:    窗口大小，窗口内进行attn运算
+        """
+        super().__init__()
+        #assert layers % 2 == 0, 'Stage layers need to be divisible by 2 for regular and shifted block.'
+
+        self.patch_partition = PatchMerging(in_channels=in_channels, out_channels=hidden_dimension,
+                                            downscaling_factor=downscaling_factor)
+
+        
+        self.layer1=nn.Sequential(
+                SwinBlock_change(dim=hidden_dimension, heads=num_heads, head_dim=head_dim, mlp_dim=hidden_dimension * 4,
+                            shifted=False, window_size=window_size, relative_pos_embedding=relative_pos_embedding,
+                            cross_attn=cross_attn),)
+        #self.layer2=MultiResBlock_noConv(hidden_dimension, hidden_dimension, 3)
+        self.layer3= SwinBlock_change(dim=hidden_dimension, heads=num_heads, head_dim=head_dim, mlp_dim=hidden_dimension * 4,
+                          shifted=True, window_size=window_size, relative_pos_embedding=relative_pos_embedding,
+                          cross_attn=cross_attn)       
+        self.layer4=MultiResBlock_noConv(hidden_dimension, hidden_dimension, 3)
+            
+            
+
+
+
+    def forward(self, x, y=None):
+        if y is None:
+            #original_x=x
+            x = self.patch_partition(x)  # [N, H//downscaling_factor, W//downscaling_factor, hidden_dim]
+            x = self.layer1(x)
+            x=x.permute(0, 3, 1, 2)
+            x=self.patch_partition(x)
+            x=self.layer3(x)
+            x=x.permute(0, 3, 1, 2)
+            x=self.layer4(x)
+            return x 
+            # [N, hidden_dim,  H//downscaling_factor, W//downscaling_factor]
+
+# device = torch.device("cpu") # PyTorch v0.4.0
+# model = SwinModule_new(in_channels=4, hidden_dimension=64, layers=2,
 #                         downscaling_factor=1, num_heads=8, head_dim=16,
 #                        window_size=4, relative_pos_embedding=True, cross_attn=False
-#
+
 # ).to(device)
 # summary(model, (1,4, 128,128))

@@ -362,7 +362,7 @@ def tiff_save_img(img,img_path,bit_depth,data_type='sigmoid'):
         IMG = IMG.astype('uint8')  # 从float转换成整形
         if c==8:
             cv2.imwrite(img_path, IMG[:, :, [1,2,4]]) #读入顺序为BGR 与波段顺序一致
-        if c==3:
+        if c==4:
             cv2.imwrite(img_path, IMG[:, :, [0,1,2]]) 
 def tiff_save_img_no_his(img,img_path,bit_depth,data_type='sigmoid'):
     if img.ndim == 2:

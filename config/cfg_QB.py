@@ -15,6 +15,7 @@ from models.my_transformer import my_model_3_13,my_model_3_13_ablation
 from models.model_pannet import PanNet_model
 #训练设置
 test=True
+tradition=False
 MODEL=my_model_3_13()
 model = 'my_model_3_13'
 #batch size
@@ -86,7 +87,6 @@ elif model=='my_model_3_13_ablation':
     #测试设置
     test_STAMP='23-03-20-20'
     num_epochs = 130
-
 else:
     ms_size=64
     lr = 1e-4

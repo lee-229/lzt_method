@@ -4,19 +4,22 @@ import os
 import torch
 import datetime
 #from models.model_Unet import Unet_transformer_3_12
-#from models.model_TFnet import TFNet
-# #from models.LDP_net import LDP_Net
+# from models.model_TFnet import TFNet
+# # #from models.LDP_net import LDP_Net
 # from models.model_MSDCNN import MSDCNN_model
-from models.model_fusionnet import FusionNet
-from models.model_LAGConv import LACNET
-from models.Pan_former import CrossSwinTransformer
-from models.my_transformer import my_model_3_13
+# from models.model_fusionnet import FusionNet
+# from models.model_LAGConv import LACNET
+# from models.Pan_former import CrossSwinTransformer
+from models.my_transformer import my_model_3_13_easy_nomulti,my_model_3_13_easy,my_model_3_30_6
 # from models.NLRNET import NLRNet
-from models.model_pannet import PanNet_model
+# from models.model_pannet import PanNet_model
+from models.GSA import GSA
 #训练设置
 test=False
-MODEL=LACNET()
-model = 'LACNET'
+tradition=False
+cuda = True
+MODEL=my_model_3_13_easy_nomulti()
+model = 'my_model_3_13_easy_nomulti'
 #batch size
 batch_size = 32
 #学习率
@@ -75,6 +78,57 @@ elif model=='PanNet':
     #测试设置
     test_STAMP='23-03-18-13'
     num_epochs = 110
+elif model=='GSA':
+    ms_size=16
+    cuda=False
+    num_epochs=0
+    test_STAMP='23-03-28'
+    loss_type='L2'
+elif model=='MSDCNN_model':
+    ms_size=64
+    lr = 1e-4
+    step =60
+    decay_rate=0.5
+    optimizer=torch.optim.Adam
+    #损失函数
+    loss_type='L2'
+    #测试设置
+    test_STAMP='23-03-29-20'
+    num_epochs = 130
+elif model=='my_model_3_13_ablation':
+    ms_size=64
+    lr = 1e-4
+    step =5
+    decay_rate=0.99
+    optimizer=torch.optim.Adam
+    #损失函数
+    loss_type='L1'
+    #测试设置
+    test_STAMP='23-03-30-16'
+    num_epochs = 150        
+elif model=='my_model_3_13_easy_ablation':
+    ms_size=64
+    lr = 1e-4
+    step =5
+    decay_rate=0.99
+    optimizer=torch.optim.Adam
+    #损失函数
+    loss_type='L1'
+    #测试设置
+    test_STAMP='23-03-30-16'
+    num_epochs = 150        
+elif model=='my_model_3_13_easy':
+    ms_size=64
+    lr = 1e-4
+    step =5
+    decay_rate=0.99
+    optimizer=torch.optim.Adam
+    #损失函数
+    loss_type='L1'
+    #测试设置
+    test_STAMP='23-04-02-20'
+    num_epochs = 130        
+
 else:
     ms_size=64
     lr = 1e-4
@@ -84,7 +138,7 @@ else:
     #损失函数
     loss_type='L1'
     #测试设置
-    test_STAMP='23-03-16-20'
+    test_STAMP='23-04-02-20'
     num_epochs = 130
 
 #数据集
@@ -94,7 +148,7 @@ source='/media/dy113/disk1/Project_lzt/dataset/4 WorldView-4'
 #测试设置
 TIMESTAMP=datetime.datetime.now().strftime('%y-%m-%d-%H')
 
-test_batch_size = 1
+test_batch_size = 5
 #恢复训练设置
 start_epoch =1
 resumeG = ''
@@ -112,11 +166,11 @@ train_type = 'train_low_res'# full是无监督 low是有监督
 data_type = "tanh"
 
 scale_factor = 4
-cuda = True
+
 device = torch.device("cuda:0" )
 device_ids = [0]
 parallel = True
-make_data = True
+make_data = False
 # resume
 threads = 4
 

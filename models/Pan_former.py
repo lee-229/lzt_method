@@ -405,3 +405,10 @@ class CrossSwinTransformer_8c(nn.Module):
 # device = torch.device("cuda" if torch.cuda.is_available() else "cpu") # PyTorch v0.4.0
 # model = CrossSwinTransformer().to(device)
 # summary(model, ((1,1, 64,64),(1,4, 16,16)))
+from thop import profile  
+with torch.cuda.device(2):
+    model = CrossSwinTransformer()
+    input_pan = torch.randn(1,1, 64,64)
+    input_ms = torch.randn(1,4, 16,16)
+    flop, params = profile(model, inputs=(input_pan,input_ms))
+    print('Flops:',"%.2fM" % (flop/1e6), 'Params:',"%.2fM" % (params/1e6))

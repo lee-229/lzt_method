@@ -213,7 +213,13 @@ class FusionNet_8c(nn.Module):
         return torch.clamp(output +x, -1, 1)   # lms + outs
 
 
-
+# from thop import profile  
+# with torch.cuda.device(0):
+#     model = FusionNet()
+#     input_pan = torch.randn(1,1, 64,64)
+#     input_ms = torch.randn(1,4, 64,64)
+#     flop, params = profile(model, inputs=(input_pan,input_ms))
+#     print('Flops:',"%.2fM" % (flop/1e6), 'Params:',"%.2fM" % (params/1e6))
 
 # device = torch.device("cuda" if torch.cuda.is_available() else "cpu") # PyTorch v0.4.0
 # model = FusionNet().to(device)
