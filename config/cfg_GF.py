@@ -3,12 +3,13 @@
 import os
 import torch
 import datetime
-# from models.model_TFnet import TFNet
+#from models.model_TFnet import TFNet
 # from models.model_fusionnet import FusionNet
 # from models.model_LAGConv import LACNET
 # from models.Pan_former import CrossSwinTransformer
-from models.my_transformer import my_model_3_31_2,my_model_3_30,my_model_3_30_6,my_model_3_31_1
-from models.my_transformer_new import my_model_4_4_3
+from models.my_transformer import my_model_3_31_2
+# from models.my_model_final import  my_model_4_6_3
+
 # from models.model_MSDCNN import MSDCNN_model
 # # from models.NLRNET import NLRNet
 # from models.model_pannet import PanNet_model
@@ -138,7 +139,18 @@ elif model=='my_model_3_30_4':
     #测试设置
     test_STAMP='23-03-30-19'
     num_epochs = 130
-elif model=='my_model_3_30_5':
+elif model=='my_model_3_31_2':
+    ms_size=64
+    lr = 1e-4
+    step =5
+    decay_rate=0.99
+    optimizer=torch.optim.Adam
+    #损失函数
+    loss_type='SSIM+SAM'
+    #测试设置
+    test_STAMP='23-04-04-21'
+    num_epochs = 200
+elif model=='my_model_4_6_3':
     ms_size=64
     lr = 1e-4
     step =5
@@ -147,18 +159,7 @@ elif model=='my_model_3_30_5':
     #损失函数
     loss_type='L1'
     #测试设置
-    test_STAMP='23-03-30-19'
-    num_epochs = 130
-elif model=='my_model_3_30_6':
-    ms_size=64
-    lr = 1e-4
-    step =5
-    decay_rate=0.99
-    optimizer=torch.optim.Adam
-    #损失函数
-    loss_type='L1'
-    #测试设置
-    test_STAMP='23-03-31-11'
+    test_STAMP='23-04-06-13'
     num_epochs = 130
 
 

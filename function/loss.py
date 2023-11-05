@@ -149,6 +149,38 @@ class unsuper_loss_QNR(nn.Module):
         loss =10*loss_new + loss_reg
 
         return loss
+class unsuper_loss_LDP(nn.Module):
+    def __init__(self):
+        super(unsuper_loss_LDP, self).__init__()
+        self.pixel_loss = nn.L1Loss()
+        self.kl_loss = torch.nn.KLDivLoss(reduction='sum')
+
+
+    def forward(self, ms,ms_,input_lr,lr_ms,input_lr_up,gray_ms,
+                pan_multi,lr_pan,lrms_up_gray):
+
+        # spectral_low
+        loss_ = 20 * self.pixel_loss(ms_, input_lr)
+        # spectral_high
+        loss_lr_ms = self.pixel_loss(lr_ms, input_lr_up)
+        loss_spectral = loss_ + loss_lr_ms
+        #loss_spectral = loss_
+        # spatial loss
+        # spatial_high
+        loss_ms_gray = self.pixel_loss(gray_ms, pan_multi)
+        # spatial_low
+        loss_lr_pan = self.pixel_loss(lr_pan, lrms_up_gray)
+        #loss_spatial = 20 * loss_ms_gray + loss_lr_pan
+        loss_spatial = 20 * loss_ms_gray 
+        # KL loss
+        res1 = input_lr_up - lrms_up_gray
+        res2 = ms - pan_multi
+        loss_kl = 0.1 * self.kl_loss(res1.softmax(dim=-1).log(), res2.softmax(dim=-1))
+        # total loss
+        loss = 5*loss_spatial + 5 * loss_spect                                   ral + loss_kl
+        #loss = 5*loss_spatial + 5 * loss_spectral
+
+        return loss
 def criterion(self, output, _label):
     spatital_loss = self.l1(output, _label) * 85
     spectral_loss = torch.mean(1 - cosine_similarity(output, _label, dim=1)) * 15
@@ -170,29 +202,41 @@ class super_loss(nn.Module):
         self.loss=loss_type
         self.L1 = nn.L1Loss()
         self.L2 = nn.MSELoss()
+        self.QNR = QNRLoss()
+        
 
 
-    def forward(self, target,pansharpening):
+    def forward(self, ms,pan,pansharpening,target):
         if (self.loss == 'L1'):
             return self.L1(pansharpening,target)
         elif(self.loss == 'L2'):
             return self.L2(target,pansharpening)
-        #SAM_loss =SAM_torch(target,pansharpening)
-        #return 3*Pixel_loss + SAM_loss
-
-class T_net_loss(nn.Module):
+        elif(self.loss == 'QNR'):
+            QNR_loss =self.QNR(pan,ms,pansharpening)
+            return self.L1(pansharpening,target) + 0.01*QNR_loss
+        elif(self.loss == 'high_pass'):
+            fake_grad = high_pass(pansharpening)
+            real_grad = high_pass(pan)
+            return self.L1(pansharpening,target)+0.1*self.L1(fake_grad,real_grad)
+        elif(self.loss == 'SAM'):
+            SAM_loss = SAM_torch(target, pansharpening)
+            return 0.8*self.L1(pansharpening,target)+0.1*SAM_loss
+        elif(self.loss == 'SSIM'):
+            ssim_module =SSIM(data_range=1, size_average=True, channel=4)
+            return self.L1(pansharpening,target)+0.1*(1-ssim_module(target,pansharpening))
+        elif(self.loss == 'SSIM+SAM'):
+            SAM_loss = SAM_torch(target, pansharpening)
+            ssim_module =SSIM(data_range=1, size_average=True, channel=4)
+            return 1.0*self.L1(pansharpening,target)+0.1*(1-ssim_module(target,pansharpening))+0.1*SAM_loss
+class SSIM_loss(nn.Module):
     #输入为n*1*128*128 用于计算拟合的PAN和真实PAN的梯度差距
     def __init__(self):
-        super(T_net_loss, self).__init__()
-        self.loss =nn.L1Loss()
         self.ssim_module =SSIM(data_range=1, size_average=True, channel=1)
-        # self.qnr = QNRLoss()
+
 
     def forward(self, pan_img,out):
-        # high_pass_loss=self.mse_loss(high_pass(pan_img),high_pass(out))
-        #structrue_loss = 1-self.ssim_module(pan_img/2+0.5, out/2+0.5)
         structrue_loss=self.loss(pan_img, out)
-        return 100*structrue_loss
+        return structrue_loss
 
 class G_loss_unet_adv(nn.Module):
     # unet的G 生成对抗loss

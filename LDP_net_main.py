@@ -29,14 +29,10 @@ def main(cfg, logger):
     logger.info(seed)
     if cfg.cuda:
         torch.cuda.manual_seed(seed)
-    cudnn.benchmark = True
+        cudnn.benchmark = False
     # build network
     print('==>building network...')
     G = LDP_Net(in_channel=cfg.in_nc, mid_channel=cfg.mid_nc)
-    num_params = 0
-    for param in G.parameters():
-        num_params += param.numel()
-    print('Total number of parameters : %.3f M' % (num_params / 1e6))
     # loss
     pixel_loss = torch.nn.MSELoss()
     if cfg.pixel_loss_type == 'L1':
@@ -51,15 +47,17 @@ def main(cfg, logger):
     logger.info("===> Setting GPU")
     if cfg.cuda:
         logger.info('cuda_mode:', cfg.cuda)
+        if cfg.parallel:
+            G = nn.DataParallel(G,cfg.device_ids)
         G.to(cfg.device)
         pixel_loss.to(cfg.device)
         kl_loss.to(cfg.device)
         Smooth_operator.to(cfg.device)
-        if cfg.parallel:
-            G = nn.DataParallel(G, cfg.device_ids)
     # optimizer
     print("===> Setting Optimizer")
-    optim = torch.optim.Adam(G.parameters(), lr=cfg.lr)
+    optim = cfg.optimizer(G.parameters(), lr=cfg.lr)
+    if cfg.make_data:
+        make_data.generate_data(cfg.make_data_cfg['train_data'])  # 前面是保存位置
     if cfg.pretrained and cfg.test:
         logger.info('==>loading test data...')
         #make_data.generate_data(cfg.make_data_cfg['test_data']) #前面是保存位置

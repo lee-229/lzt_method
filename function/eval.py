@@ -354,14 +354,15 @@ def SAM_torch(x_true, x_pred):
     Returns:
         torch.Tensor: mean SAM value of n images
     """
-    x_true=(x_true/2+0.5)
-    x_pred=(x_pred/2+0.5)
+    x_true=torch.clamp((x_true/2+0.5),1e-7,1)
+    x_pred=torch.clamp((x_pred/2+0.5),1e-7,1)
+
     dot_sum = torch.sum(x_true * x_pred, dim=1)
     norm_true = torch.norm(x_true, dim=1)#[N, H, W]
     norm_pred = torch.norm(x_pred, dim=1)#[N, H, W]
     # a = torch.Tensor([0]).to(x_true.device, dtype=x_true.dtype)
     # b = torch.Tensor([1]).to(x_true.device, dtype=x_true.dtype)
-    res = dot_sum / (norm_pred + 1e-5) / norm_true
+    res = dot_sum / (norm_pred + 1e-7) / norm_true
     res = torch.abs(res -1)#0-1
     # res = torch.max(torch.min(res, a), b)  # 将输入限制在-1-1之间
     # res = torch.acos(res)

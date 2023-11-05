@@ -186,7 +186,7 @@ def eval_compute(input_pan,input_lr,pansharpening,target,test_type,cfg,logger):
             else:
                 tmp_results['SAM'].append(SAM_numpy(target[i], pansharpening[i], sewar=False))
                 tmp_results['ERGAS'].append(ERGAS_numpy(target[i], pansharpening[i], sewar=False))
-                tmp_results['Q4'].append(Q4_numpy(target[i], pansharpening[i]))
+                tmp_results['PSNR'].append(MPSNR_numpy(target[i], pansharpening[i],1))
                 tmp_results['SCC'].append(scc(target[i], pansharpening[i]))
 
     #计算平均值 打印结果
@@ -199,3 +199,17 @@ def eval_compute(input_pan,input_lr,pansharpening,target,test_type,cfg,logger):
     #     eval_results[f'{metric}_std'].append(round(std, 4))
     #     #logger.info(f'{metric} metric value: {mean:.4f} +- {std:.4f}')
     return tmp_results
+class Smooth(nn.Module):
+    def __init__(self, in_nc=4):
+        super(Smooth, self).__init__()
+        self.chennel = in_nc
+        kernel = np.ones([3, 3]) * (1/9)
+        kernel = torch.FloatTensor(kernel).unsqueeze(0).unsqueeze(0)
+        kernel = np.repeat(kernel, self.chennel, axis=0)
+        kernel = kernel.cuda()
+        self.weight = nn.Parameter(data=kernel, requires_grad=False)
+
+    def forward(self, x):
+        x = F.conv2d(x, self.weight, padding=1, groups=self.chennel)
+        return x
+

@@ -7,19 +7,24 @@ import os
 from data_utils import read_img2
 # from resize_image import *
 import scipy.io as scio
-from utilis import auto_create_path
+
 import cv2
 import torch
 import torch.nn as nn
 import math
 import scipy.ndimage.filters as ft
 #读取的文件类型为tiff文件
-
+def auto_create_path(FilePath):
+    if os.path.exists(FilePath):   ##目录存在，返回为真
+            print( 'dir exists' )
+    else:
+            print( 'dir not exists')
+            os.makedirs(FilePath)
 def get_image_id(filename):
     return filename.split('.')[0] #以-分割 并选定第一项
 
-path = '/media/dy113/disk1/Project_lzt/dataset/3 Gaofen-1'
-type='Gaofen-1'
+path = '/media/dy113/disk1/Project_lzt/dataset/5 WorldView-2'
+type='WV2'
 #原始文件的位置cd
 source_ms_path = path+'/MS_256'
 source_pan_path = path+'/PAN_1024'
@@ -96,7 +101,7 @@ def MTF(ratio, sensor, N=41):
     elif (sensor == 'GeoEye1') or (sensor == 'WV4'):
         GNyq = np.asarray([0.23, 0.23, 0.23, 0.23])  # Bands Order: B, G, R, NIR
     elif (sensor == 'WV2'):
-        GNyq = 0.35 * np.ones((1, 7));
+        GNyq = 0.35 * np.ones((1, 7))
         GNyq = np.append(GNyq, 0.27)
     elif (sensor == 'WV3'):
         GNyq = [0.325, 0.355, 0.360, 0.350, 0.365, 0.360, 0.335, 0.315]
@@ -113,7 +118,7 @@ def MTF_PAN(ratio, sensor, N=41):
     elif (sensor == 'GeoEye1') or (sensor == 'WV4'):
         GNyq = np.array([0.16])
     elif (sensor == 'WV2'):
-        GNyq = np.array([0.11])
+        GNyq = np.array([0.11]) #原始值是0.11
     elif (sensor == 'WV3'):
         GNyq = np.array([0.14])
     elif (sensor == 'GF-1'):
@@ -306,32 +311,26 @@ pan = torch.FloatTensor(all_pan).unsqueeze(1)
 ms = torch.FloatTensor(all_ms)
 print(pan.shape)
 print(ms.shape)
-
-# I_MS_LR, I_PAN_LR = wald_protocol(ms, pan, 4, 'WV2', channels=8)#[C,H,W]
-# for name in os.listdir(source_ms_path):
-#     #保存为.mat格式
-#     dataNew_ms = os.path.join(source_RRms_path, name)
-#     dataNew_pan = os.path.join(source_RRpan_path, name)
-#     i = get_image_id(name) #返回数值
-#     # 针对输入为h*w*c transpose
-#     scio.savemat(dataNew_ms, {'LRMS': I_MS_LR[int(i)-1,:,:,:].permute(1,2,0).numpy()})#H/4*W/4*C
-#     scio.savemat(dataNew_pan, {'LRPAN': I_PAN_LR[int(i)-1,:,:,:].squeeze(0).numpy()})#H*W
-    
-    
+# MTF降采样法
+I_MS_LR, I_PAN_LR = wald_protocol(ms, pan, 4, 'WV2', channels=8)#[C,H,W]
 for name in os.listdir(source_ms_path):
-# i = get_image_id(name) #返回数值
-# MS= load_image(os.path.join(source_ms_path,i+'-MUL.tif')) #[C, H, W]
-# PAN = load_image(os.path.join(source_pan_path,i+'-PAN.tif')) #[4H, 4W]
-
-    MS = read_img2(os.path.join(source_ms_path,name),'imgMS')#[H,W,C]
-    PAN = read_img2(os.path.join(source_pan_path,name),'imgPAN')#[H,W,C]
-
-# MS = MS.transpose(1,2,0) #[H, W, C]
-    I_MS_LR = downsample(MS) ##[C*H/4*W/4]
-    I_PAN_LR = downsample_pan(PAN)#[H*W]
-#保存为.mat格式
+    #保存为.mat格式
     dataNew_ms = os.path.join(source_RRms_path, name)
     dataNew_pan = os.path.join(source_RRpan_path, name)
-# 针对输入为h*w*c transpose
-    scio.savemat(dataNew_ms, {'LRMS': I_MS_LR})#H/4*W/4*C
-    scio.savemat(dataNew_pan, {'LRPAN': I_PAN_LR})#H*W   
+    i = get_image_id(name) #返回数值
+    # 针对输入为h*w*c transpose
+    scio.savemat(dataNew_ms, {'LRMS': I_MS_LR[int(i)-1,:,:,:].permute(1,2,0).numpy()})#H/4*W/4*C
+    scio.savemat(dataNew_pan, {'LRPAN': I_PAN_LR[int(i)-1,:,:,:].squeeze(0).numpy()})#H*W
+    
+    
+
+# 如果是普通的降采样 使用下面的保存方式
+# # MS = MS.transpose(1,2,0) #[H, W, C]
+#     I_MS_LR = downsample(MS) ##[C*H/4*W/4]
+#     I_PAN_LR = downsample_pan(PAN)#[H*W]
+# #保存为.mat格式
+#     dataNew_ms = os.path.join(source_RRms_path, name)
+#     dataNew_pan = os.path.join(source_RRpan_path, name)
+# # 针对输入为h*w*c transpose
+#     scio.savemat(dataNew_ms, {'LRMS': I_MS_LR})#H/4*W/4*C
+#     scio.savemat(dataNew_pan, {'LRPAN': I_PAN_LR})#H*W   

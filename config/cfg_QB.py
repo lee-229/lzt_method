@@ -4,20 +4,26 @@ import os
 import torch
 import datetime
 #from models.model_Unet import Unet_transformer_3_12
-from models.model_TFnet import TFNet
+# from models.model_TFnet import TFNet
 # #from models.LDP_net import LDP_Net
 # from models.model_MSDCNN import MSDCNN_model
-from models.model_fusionnet import FusionNet
-from models.model_LAGConv import LACNET
+# from models.model_fusionnet import FusionNet
+# from models.model_LAGConv import LACNET
 from models.Pan_former import CrossSwinTransformer
-from models.my_transformer import my_model_3_13,my_model_3_13_ablation
-# from models.NLRNET import NLRNet
-from models.model_pannet import PanNet_model
+# from models.my_transformer import my_model_3_13,my_model_3_13_ablation
+from models.my_transformer import my_model_3_31_2
+
+# from models.Wavelet import Wavelet
+# from models.MTF_GLP import MTF_GLP
+# from models.IHS import IHS
+# from models.PCA import PCA
+
 #训练设置
-test=True
+test=False
 tradition=False
-MODEL=my_model_3_13()
-model = 'my_model_3_13'
+MODEL=my_model_3_31_2()
+model = 'my_model_3_31_2'
+cuda = True
 #batch size
 batch_size = 32
 #学习率
@@ -76,17 +82,34 @@ elif model=='PanNet':
     #测试设置
     test_STAMP='23-03-21-09'
     num_epochs = 110
-elif model=='my_model_3_13_ablation':
+elif model=='my_model_3_31_2':
     ms_size=64
     lr = 1e-4
     step =5
     decay_rate=0.99
     optimizer=torch.optim.Adam
     #损失函数
-    loss_type='L1'
+    loss_type='SSIM+SAM'
     #测试设置
-    test_STAMP='23-03-20-20'
+    test_STAMP='23-04-21-19'
+    num_epochs = 600
+elif model=='MSDCNN_model':
+    ms_size=64
+    lr = 1e-4
+    step =60
+    decay_rate=0.5
+    optimizer=torch.optim.Adam
+    #损失函数
+    loss_type='L2'
+    #测试设置
+    test_STAMP='23-04-21-16'
     num_epochs = 130
+elif model=='Wavelet' or model=='IHS' or model=='MTF_GLP' or model=='PCA':
+    ms_size=16
+    cuda=False
+    num_epochs=0
+    test_STAMP='23-03-28'
+    loss_type='L2'
 else:
     ms_size=64
     lr = 1e-4
@@ -97,7 +120,7 @@ else:
     loss_type='L1'
     #测试设置
     test_STAMP='23-03-20-16'
-    num_epochs = 130
+    num_epochs = 160
 
 #数据集
 dataset = 'QB_small' 
@@ -106,7 +129,7 @@ source='/media/dy113/disk1/Project_lzt/dataset/2 QuickBird'
 #测试设置
 TIMESTAMP=datetime.datetime.now().strftime('%y-%m-%d-%H')
 
-test_batch_size = 1
+test_batch_size = 5
 #恢复训练设置
 start_epoch =1
 resumeG = ''
@@ -124,7 +147,7 @@ train_type = 'train_low_res'# full是无监督 low是有监督
 data_type = "tanh"
 
 scale_factor = 4
-cuda = True
+
 device = torch.device("cuda:0" )
 device_ids = [0]
 parallel = True

@@ -4,22 +4,31 @@ import os
 import torch
 import datetime
 #from models.model_Unet import Unet_transformer_3_12
-# from models.model_TFnet import TFNet
+#from models.model_TFnet import TFNet
 # # #from models.LDP_net import LDP_Net
-# from models.model_MSDCNN import MSDCNN_model
-# from models.model_fusionnet import FusionNet
+#from models.model_MSDCNN import MSDCNN_model
+from models.LDP_net import LDP_Net
+# #from models.model_fusionnet import FusionNet
 # from models.model_LAGConv import LACNET
-# from models.Pan_former import CrossSwinTransformer
-from models.my_transformer import my_model_3_13_easy_nomulti,my_model_3_13_easy,my_model_3_30_6
+#from models.Pan_former import CrossSwinTransformer
+#from models.my_transformer import my_model_3_31_2,my_model_3_30_6
+#from models.my_transformer_new import my_model_4_6_3
 # from models.NLRNET import NLRNet
 # from models.model_pannet import PanNet_model
-from models.GSA import GSA
+
+
+# from models.Wavelet import Wavelet
+# from models.SFIM import SFIM
+# from models.MTF_GLP import MTF_GLP
+#from models.Brovey import Brovey
+# from models.IHS import IHS
+#from models.PCA import GFPCA
 #训练设置
 test=False
 tradition=False
 cuda = True
-MODEL=my_model_3_13_easy_nomulti()
-model = 'my_model_3_13_easy_nomulti'
+MODEL=LDP_Net()
+model = 'LDP_Net'
 #batch size
 batch_size = 32
 #学习率
@@ -78,7 +87,7 @@ elif model=='PanNet':
     #测试设置
     test_STAMP='23-03-18-13'
     num_epochs = 110
-elif model=='GSA':
+elif model=='Wavelet' or model=='IHS' or model=='MTF_GLP' or model=='GFPCA':
     ms_size=16
     cuda=False
     num_epochs=0
@@ -94,8 +103,8 @@ elif model=='MSDCNN_model':
     loss_type='L2'
     #测试设置
     test_STAMP='23-03-29-20'
-    num_epochs = 130
-elif model=='my_model_3_13_ablation':
+    num_epochs = 100
+elif model=='my_model_3_30_6':
     ms_size=64
     lr = 1e-4
     step =5
@@ -106,28 +115,51 @@ elif model=='my_model_3_13_ablation':
     #测试设置
     test_STAMP='23-03-30-16'
     num_epochs = 150        
-elif model=='my_model_3_13_easy_ablation':
+elif model=='my_model_3_31_2_no_res':
     ms_size=64
     lr = 1e-4
     step =5
     decay_rate=0.99
     optimizer=torch.optim.Adam
     #损失函数
-    loss_type='L1'
+    loss_type='SSIM+SAM'
     #测试设置
-    test_STAMP='23-03-30-16'
-    num_epochs = 150        
-elif model=='my_model_3_13_easy':
+    test_STAMP='23-04-21-08'
+    num_epochs = 140    
+elif model=='my_model_3_31_2_no_CA':
     ms_size=64
     lr = 1e-4
     step =5
     decay_rate=0.99
     optimizer=torch.optim.Adam
     #损失函数
-    loss_type='L1'
+    loss_type='SSIM+SAM'
     #测试设置
-    test_STAMP='23-04-02-20'
-    num_epochs = 130        
+    test_STAMP='23-04-21-13'
+    num_epochs = 130       
+elif model=='my_model_3_31_2':
+    ms_size=64
+    lr = 1e-4
+    step =5
+    decay_rate=0.99
+    optimizer=torch.optim.Adam
+    #损失函数
+    loss_type='SSIM+SAM'
+    #测试设置
+    test_STAMP='23-04-20-13'
+    num_epochs = 140 
+elif model=='LDP_Net':
+    in_nc = 4
+    ms_size=64
+    lr = 1e-4
+    step =5
+    decay_rate=0.99
+    optimizer=torch.optim.Adam
+    #损失函数
+    loss_type='unsuper_loss_LDP'
+    #测试设置
+    test_STAMP='23-10-10-19'
+    num_epochs = 30         
 
 else:
     ms_size=64
@@ -136,10 +168,10 @@ else:
     decay_rate=0.99
     optimizer=torch.optim.Adam
     #损失函数
-    loss_type='L1'
+    loss_type='SSIM+SAM'
     #测试设置
     test_STAMP='23-04-02-20'
-    num_epochs = 130
+    num_epochs = 160
 
 #数据集
 dataset = 'WV4_small' 
@@ -148,7 +180,7 @@ source='/media/dy113/disk1/Project_lzt/dataset/4 WorldView-4'
 #测试设置
 TIMESTAMP=datetime.datetime.now().strftime('%y-%m-%d-%H')
 
-test_batch_size = 5
+test_batch_size = 1
 #恢复训练设置
 start_epoch =1
 resumeG = ''
@@ -162,14 +194,14 @@ bit_depth = 11
 savedir = './output/'
 # train
 train_dir = './train/'
-train_type = 'train_low_res'# full是无监督 low是有监督
-data_type = "tanh"
+train_type = 'train_full_res'# full是无监督 low是有监督
+data_type = "sigmoid"
 
 scale_factor = 4
 
 device = torch.device("cuda:0" )
 device_ids = [0]
-parallel = True
+parallel = False
 make_data = False
 # resume
 threads = 4
@@ -245,26 +277,26 @@ else:
         valid_data=dict(
             image_dirs=os.path.join(train_dir, dataset, valid_dir,test_type),
             source_path=source,
-            stride=8,
-            ms_size=16,
-            pan_size=64,
+            stride=32,
+            ms_size=32,
+            pan_size=128,
             test_pair =5,
             train_pair = 22000),
         valid_data_2=dict(
             image_dirs=os.path.join(train_dir, dataset,valid_dir, test_type_2),
             source_path=source,
-            stride=8,
-            ms_size=16,
-            pan_size=64,
+            stride=32,
+            ms_size=32,
+            pan_size=128,
             test_pair=5,
             train_pair=22000),
         train_data=dict(
             image_dirs=os.path.join(train_dir, dataset, train_type),
             source_path=source,
-            stride=8,
-            ms_size=16,
-            pan_size=64,
+            stride=32,
+            ms_size=32,
+            pan_size=128,
             test_pair=50,
-            train_pair=22000)
+            train_pair=11000)
     )
 

@@ -7,19 +7,28 @@ import datetime
 # from models.model_fusionnet import FusionNet_8c
 # from models.model_LAGConv import LACNET_8c
 # from models.Pan_former import CrossSwinTransformer_8c
-from models.my_transformer import my_model_3_13_easy_8c,my_model_3_13_easy_ablation_8c
+# #from models.my_transformer import my_model_3_13_easy_8c,my_model_3_13_easy_ablation_8c
+# #from models.my_model_final import my_model_4_6_3_8c
 # from models.model_MSDCNN import MSDCNN_model_8c
+from models.my_transformer import my_model_3_31_2_8c
 # # from models.NLRNET import NLRNet
 # from models.model_pannet import PanNet_model_8c
 
 
-from models.GSA import GSA
+# from models.GSA import GSA
+# from models.IHS import IHS
+# from models.Wavelet import Wavelet
+# from models.MTF_GLP_HPM import MTF_GLP_HPM
+# from models.SFIM import SFIM
+# from models.MTF_GLP import MTF_GLP
+# from models.Brovey import Brovey
+from models.PCA import GFPCA
 #训练设置
 test=True
-tradition=False
+tradition=True
 cuda = True
-MODEL=my_model_3_13_easy_ablation_8c()
-model = 'my_model_3_13_easy_ablation_8c'
+MODEL=GFPCA
+model = 'GFPCA'
 #batch si;'
 
 
@@ -90,25 +99,33 @@ elif model=='MSDCNN_model_8c':
     #损失函数
     loss_type='L2'
     #测试设置
-    test_STAMP='23-03-29-20'
-    num_epochs = 130
+    test_STAMP='23-04-11-10'
+    num_epochs = 160
 elif model=='GSA':
     ms_size=16
     cuda=False
     num_epochs=0
     test_STAMP='23-03-28'
     loss_type='L2'
-elif model=="my_model_3_13_8c_ablation" :  
+elif model=='IHS' or model=='SFIM' or model=='GFPCA' or model=='MTF_GLP' or model=='Wavelet':
+    ms_size=16
+    cuda=False
+    num_epochs=0
+    test_STAMP='23-03-28'
+    loss_type='L2'
+
+
+elif model=="my_model_3_31_2" :  
     ms_size=64
     lr = 1e-4
     step =5
     decay_rate=0.99
     optimizer=torch.optim.Adam
     #损失函数
-    loss_type='L1'
+    loss_type='SSIM+SAM'
     #测试设置
-    test_STAMP='23-03-30-09'
-    num_epochs = 130
+    test_STAMP='23-04-11-12'
+    num_epochs = 100
 else:
     ms_size=64
     lr = 1e-4
@@ -119,7 +136,7 @@ else:
     loss_type='L1'
     #测试设置
     test_STAMP='23-04-03-09'
-    num_epochs = 130
+    num_epochs = 150
 
 #数据集
 dataset = 'WV2_small' 
@@ -130,8 +147,8 @@ TIMESTAMP=datetime.datetime.now().strftime('%y-%m-%d-%H')
 
 test_batch_size = 1
 #恢复训练设置
-start_epoch =101
-resumeG = '/media/dy113/disk1/Project_lzt/code/lzt_method/model_para/WV2_small/my_model_3_13_easy_ablation_8c/G/23-04-02-23/epoch100.pkl'
+start_epoch =1
+resumeG = ''
 
 test_type = 'test_full_res'
 test_type_2 = 'test_low_res'
